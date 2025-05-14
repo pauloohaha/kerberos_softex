@@ -16,7 +16,7 @@ module softex_wrap #(
     parameter int unsigned              ID_WIDTH    = 8             ,
     parameter int unsigned              N_CORES     = 8             ,
     parameter int unsigned              DW          = DATA_W        ,
-    parameter int unsigned              MP          = DW / 32       ,
+    parameter int unsigned              MP          = DW / 64       ,
     parameter fpnew_pkg::fp_format_e    FPFORMAT    = FPFORMAT_IN   
 ) (
     // global signals
@@ -31,11 +31,11 @@ module softex_wrap #(
     input  logic [      MP-1:0]       tcdm_gnt_i          ,
     output logic [      MP-1:0][31:0] tcdm_add_o          ,
     output logic [      MP-1:0]       tcdm_wen_o          ,
-    output logic [      MP-1:0][ 3:0] tcdm_be_o           ,
-    output logic [      MP-1:0][31:0] tcdm_data_o         ,
+    output logic [      MP-1:0][ 7:0] tcdm_be_o           ,
+    output logic [      MP-1:0][63:0] tcdm_data_o         ,
     output logic [      MP-1:0]       tcdm_r_ready_o      ,
     output logic [      MP-1:0][ 7:0] tcdm_id_o           ,    
-    input  logic [      MP-1:0][31:0] tcdm_r_data_i       ,
+    input  logic [      MP-1:0][63:0] tcdm_r_data_i       ,
     input  logic [      MP-1:0]       tcdm_r_valid_i      ,
     input  logic                      tcdm_r_opc_i        ,
     input  logic                      tcdm_r_user_i       ,
@@ -74,10 +74,10 @@ module softex_wrap #(
     `ifndef SYNTHESIS
         for(genvar ii=0; ii<MP; ii++) begin: gen_tcdm_binding
             assign tcdm_req_o       [ii] = tcdm.req;
-            assign tcdm_add_o       [ii] = tcdm.add + ii*4;
+            assign tcdm_add_o       [ii] = tcdm.add + ii*8;
             assign tcdm_wen_o       [ii] = tcdm.wen;
-            assign tcdm_be_o        [ii] = tcdm.be[(ii+1)*4-1:ii*4];
-            assign tcdm_data_o      [ii] = tcdm.data[(ii+1)*32-1:ii*32];
+            assign tcdm_be_o        [ii] = tcdm.be[(ii+1)*8-1:ii*8];
+            assign tcdm_data_o      [ii] = tcdm.data[(ii+1)*64-1:ii*64];
             assign tcdm_r_ready_o   [ii] = tcdm.r_ready;
             assign tcdm_id_o        [ii] = tcdm.id;
         end
@@ -142,10 +142,10 @@ module softex_wrap #(
                 // TCDM port
                 for (int ii = 0; ii < MP; ii++) begin
                     tcdm_req_o       [ii] <= tcdm.req;
-                    tcdm_add_o       [ii] <= tcdm.add + ii*4;
+                    tcdm_add_o       [ii] <= tcdm.add + ii*8;
                     tcdm_wen_o       [ii] <= tcdm.wen;
-                    tcdm_be_o        [ii] <= tcdm.be[ii*4+:4];
-                    tcdm_data_o      [ii] <= tcdm.data[ii*32+:32];
+                    tcdm_be_o        [ii] <= tcdm.be[ii*8+:8];
+                    tcdm_data_o      [ii] <= tcdm.data[ii*64+:64];
                     tcdm_r_ready_o   [ii] <= tcdm.r_ready;
                     tcdm_id_o        [ii] <= tcdm.id;
                 end
