@@ -71,7 +71,7 @@ module softex_streamer_strb_gen #(
     end
 
     always_comb begin
-        if (handshake_cnt_q == (stream_ctrl_i.addressgen_ctrl.tot_len - 1)) begin
+        if (handshake_cnt_q == (stream_ctrl_i.addressgen_ctrl.tot_len)) begin //MARIUS: OTHERWISE THIS ALWAYS TRUE WITHOUT -1
             strb = final_strb;
         end else begin
             strb = '1;
@@ -85,3 +85,15 @@ module softex_streamer_strb_gen #(
     assign  stream_i.ready   = stream_o.ready;
     
 endmodule
+
+//MARIUS comment:
+// I feel like something here is wrong or I do not get it.
+// For my understanding the whole handshake stuff should be disabled if no leftover.
+// But then tot_len is 1 and this gives a bug..
+
+// Check where else tot_len is used and what it means.
+
+
+// Now I can check my multiple datapath thing..
+
+// Do debugging with two request though.

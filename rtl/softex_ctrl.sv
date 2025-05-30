@@ -15,7 +15,7 @@ module softex_ctrl #(
     parameter int unsigned              IO_REGS         = N_CTRL_REGS           ,
     parameter int unsigned              ID_WIDTH        = 8                     ,
     parameter int unsigned              N_STATE_SLOTS   = N_CTRL_STATE_SLOTS    ,
-    parameter int unsigned              DATA_WIDTH      = DATA_W - 32           ,
+    parameter int unsigned              DATA_WIDTH      = DATA_W - 64           ,
     parameter int unsigned              INT_WIDTH       = INT_W                 ,
     parameter fpnew_pkg::fp_format_e    IN_FPFORMAT     = FPFORMAT_IN           ,
     parameter fpnew_pkg::fp_format_e    ACC_FPFORMAT    = FPFORMAT_ACC          

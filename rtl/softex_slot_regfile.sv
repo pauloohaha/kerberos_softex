@@ -250,6 +250,7 @@ module softex_slot_regfile #(
     assign load_i.ready     = '1;
 
     assign store_o.valid    = store_valid;
+    //MARIUS: might need to be adapted for 64bit
     assign store_o.data     = {{((DATA_WIDTH - 64)){1'b0}}, {(32 - ACC_WIDTH){1'b0}}, {1'b1, slots_q[slot_out_ptr].denominator[ACC_WIDTH - 2 : 0]}, {(32 - IN_WIDTH){1'b0}}, slots_q[slot_out_ptr].maximum};
     assign store_o.strb     = {{((DATA_WIDTH - 64) / 8){1'b0}}, {8{1'b1}}};
 

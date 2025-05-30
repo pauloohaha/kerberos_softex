@@ -140,7 +140,7 @@ module softex_streamer #(
     );
 
     hci_core_source #(
-        .MISALIGNED_ACCESSES    (   1                     ),
+        .MISALIGNED_ACCESSES    (   0                     ), //MARIUS: nonaligned
         .`HCI_SIZE_PARAM(tcdm)  (   `HCI_SIZE_PARAM(Tcdm) )
     ) i_stream_in (
         .clk_i          (   clk_i               ),
@@ -155,7 +155,7 @@ module softex_streamer #(
     );
 
     hci_core_source #(
-        .MISALIGNED_ACCESSES    (   1                     ),
+        .MISALIGNED_ACCESSES    (   0                     ),
         .`HCI_SIZE_PARAM(tcdm)  (   `HCI_SIZE_PARAM(Tcdm) )
     ) i_slot_in (
         .clk_i          (   clk_i               ),
@@ -239,7 +239,7 @@ module softex_streamer #(
     );
 
     hci_core_sink #(
-        .MISALIGNED_ACCESSES    (   1                     ),
+        .MISALIGNED_ACCESSES    (   0                     ),
         .`HCI_SIZE_PARAM(tcdm)  (   `HCI_SIZE_PARAM(Tcdm) )
     ) i_stream_out (
         .clk_i          (   clk_i                   ),
@@ -254,7 +254,7 @@ module softex_streamer #(
     );
 
     hci_core_sink #(
-        .MISALIGNED_ACCESSES    (   1                     ),
+        .MISALIGNED_ACCESSES    (   0                     ),
         .`HCI_SIZE_PARAM(tcdm)  (   `HCI_SIZE_PARAM(Tcdm) )
     ) i_slot_out (
         .clk_i          (   clk_i                   ),

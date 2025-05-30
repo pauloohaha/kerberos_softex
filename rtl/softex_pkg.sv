@@ -35,8 +35,8 @@ package softex_pkg;
 
     parameter int unsigned  INT_W       = 8;
 
-    parameter int unsigned  N_ROWS  = (DATA_W - 32) / WIDTH_IN;
-
+    parameter int unsigned  N_ROWS  = (DATA_W) / WIDTH_IN;
+    
     //Exponential unit constants
     parameter int unsigned  EXPU_A_FRACTION             = 14;
     parameter logic         EXPU_ENABLE_ROUNDING        = 1;

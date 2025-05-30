@@ -29,7 +29,7 @@ module softex_top #(
 );
 
     localparam int unsigned WIDTH       = fpnew_pkg::fp_width(FPFORMAT);
-    localparam int unsigned ACTUAL_DW   = `HCI_SIZE_GET_DW(Tcdm) - 32;
+    localparam int unsigned ACTUAL_DW   = `HCI_SIZE_GET_DW(Tcdm);
 
     hci_streamer_flags_t    stream_in_flgs;
     hci_streamer_flags_t    stream_out_flgs;
