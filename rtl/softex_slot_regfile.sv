@@ -38,8 +38,8 @@ module softex_slot_regfile #(
      *      - FREE, used at the end of the operation to free the slot and make it available to other users              */
 
     typedef struct packed {
-        logic [ACC_WIDTH - 1 : 0]       denominator;
-        logic [IN_WIDTH - 1 : 0]        maximum;
+        logic [ACC_WIDTH - 1 : 0][NUM_LANES-1:0]       denominator;
+        logic [IN_WIDTH - 1 : 0][NUM_LANES-1:0]        maximum;
 
         logic [$clog2(N_CONTEXT) : 0]   uses;
         logic                           valid;
@@ -133,8 +133,11 @@ module softex_slot_regfile #(
     end
 
     assign slot_o.valid         = slot_present & (~update_valid | (current_update.addr != ctrl_i.addr)); // We must make sure the slot we want to read is not being updated
-    assign slot_o.denominator   = requested_slot.denominator;
-    assign slot_o.maximum       = requested_slot.maximum;
+
+    for (genvar i = 0; i < NUM_LANES; i++) begin : update_assign
+        assign slot_o.denominator[i]   = requested_slot.denominator[i];
+        assign slot_o.maximum[i]       = requested_slot.maximum[i];
+    end
 
 
     // Target slot assignments
@@ -251,9 +254,15 @@ module softex_slot_regfile #(
 
     assign store_o.valid    = store_valid;
     //MARIUS: might need to be adapted for 64bit
-    assign store_o.data     = {{((DATA_WIDTH - 64)){1'b0}}, {(32 - ACC_WIDTH){1'b0}}, {1'b1, slots_q[slot_out_ptr].denominator[ACC_WIDTH - 2 : 0]}, {(32 - IN_WIDTH){1'b0}}, slots_q[slot_out_ptr].maximum};
-    assign store_o.strb     = {{((DATA_WIDTH - 64) / 8){1'b0}}, {8{1'b1}}};
+    // now adapted for 4 max and denom
 
+    //assign store_o.data     = {{((DATA_WIDTH - 64)){1'b0}}, {(32 - ACC_WIDTH){1'b0}}, {1'b1, slots_q[slot_out_ptr].denominator[ACC_WIDTH - 2 : 0]}, {(32 - IN_WIDTH){1'b0}}, slots_q[slot_out_ptr].maximum};
+    assign store_o.data     = {{slots_q[slot_out_ptr].denominator[0]}, {slots_q[slot_out_ptr].maximum[0]},
+                               {slots_q[slot_out_ptr].denominator[1]}, {slots_q[slot_out_ptr].maximum[1]},
+                               {slots_q[slot_out_ptr].denominator[2]}, {slots_q[slot_out_ptr].maximum[2]},
+                               {slots_q[slot_out_ptr].denominator[3]}, {slots_q[slot_out_ptr].maximum[3]}};
+    //assign store_o.strb     = {{((DATA_WIDTH - 64) / 8){1'b0}}, {8{1'b1}}};
+    assign store_o.strb     = {64{1'b1}};
 
     assign load_ctrl_o.req_start                        = start_load;
 
@@ -388,12 +397,34 @@ module softex_slot_regfile #(
 
         // Maximum and denominator
 
-        if (update) begin
-            slot_d.denominator  = current_update.denominator;
-            slot_d.maximum      = current_update.maximum;
-        end else if (load_i.valid) begin
-            slot_d.maximum      = load_i.data [IN_WIDTH - 1 : 0];
-            slot_d.denominator  = {1'b0, load_i.data [32 + ACC_WIDTH - 2 -: ACC_WIDTH - 1]};
+        for (integer i = 0; i < NUM_LANES; i++) begin : update_loop
+            if (update) begin
+                slot_d.denominator[i]  = current_update.denominator[i];
+                slot_d.maximum[i]      = current_update.maximum[i];
+            end else if (load_i.valid) begin
+                // slot_d.maximum[i]      = load_i.data [IN_WIDTH - 1 : 0];
+                // slot_d.denominator[i]  = {1'b0, load_i.data [32 + ACC_WIDTH - 2 -: ACC_WIDTH - 1]};
+                // Each 64-bit chunk contains: {1'b1, denom[ACC_WIDTH-2:0], {(32-IN_WIDTH){1'b0}}, max[IN_WIDTH-1:0]}
+                // For 4 lanes, we have 4 such chunks in the 256-bit data bus
+                case (i)
+                    0: begin
+                        slot_d.maximum[i]      = load_i.data[IN_WIDTH - 1 : 0];
+                        slot_d.denominator[i]  = {1'b0, load_i.data[32 + ACC_WIDTH - 2 -: ACC_WIDTH - 1]};
+                    end
+                    1: begin
+                        slot_d.maximum[i]      = load_i.data[64 + IN_WIDTH - 1 : 64];
+                        slot_d.denominator[i]  = {1'b0, load_i.data[96 + ACC_WIDTH - 2 -: ACC_WIDTH - 1]};
+                    end
+                    2: begin
+                        slot_d.maximum[i]      = load_i.data[128 + IN_WIDTH - 1 : 128];
+                        slot_d.denominator[i]  = {1'b0, load_i.data[160 + ACC_WIDTH - 2 -: ACC_WIDTH - 1]};
+                    end
+                    3: begin
+                        slot_d.maximum[i]      = load_i.data[192 + IN_WIDTH - 1 : 192];
+                        slot_d.denominator[i]  = {1'b0, load_i.data[224 + ACC_WIDTH - 2 -: ACC_WIDTH - 1]};
+                    end
+                endcase
+            end
         end
 
         // Valid

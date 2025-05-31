@@ -25,14 +25,14 @@ module softex_ctrl #(
     input   logic                           enable_i            ,
     input   hci_streamer_flags_t            in_stream_flags_i   ,
     input   hci_streamer_flags_t            out_stream_flags_i  ,
-    input   softex_pkg::datapath_flags_t    datapath_flgs_i     ,
+    input   softex_pkg::datapath_flags_t [NUM_LANES-1:0]datapath_flgs_i         ,
     input   softex_pkg::slot_t              state_slot_i        ,
     output  logic                           clear_o             ,
     output  logic                           busy_o              ,
     output  logic [N_CORES - 1 : 0] [1 : 0] evt_o               ,
     output  hci_streamer_ctrl_t             in_stream_ctrl_o    ,
     output  hci_streamer_ctrl_t             out_stream_ctrl_o   ,
-    output  softex_pkg::datapath_ctrl_t     datapath_ctrl_o     ,
+    output  softex_pkg::datapath_ctrl_t     [NUM_LANES-1:0]datapath_ctrl_o     ,
     output  softex_pkg::slot_regfile_ctrl_t slot_ctrl_o         ,
     output  softex_pkg::cast_ctrl_t         in_cast_ctrl_o      ,
     output  softex_pkg::cast_ctrl_t         out_cast_ctrl_o     ,
@@ -180,18 +180,21 @@ module softex_ctrl #(
     assign out_stream_ctrl_o.addressgen_ctrl.d2_stride      = '0;
     assign out_stream_ctrl_o.addressgen_ctrl.dim_enable_1h  = '0;
 
-    assign datapath_ctrl_o.accumulator_ctrl.acc_finished    = dp_acc_finished;
-    assign datapath_ctrl_o.accumulator_ctrl.acc_only        = acc_only & ~last;
-    assign datapath_ctrl_o.dividing                         = dp_dividing;
-    assign datapath_ctrl_o.disable_max                      = dp_disable_max;
-    assign datapath_ctrl_o.clear_regs                       = clear_regs;
-    assign datapath_ctrl_o.load_max                         = dp_load_max;
-    assign datapath_ctrl_o.load_denominator                 = dp_load_denominator;
-    assign datapath_ctrl_o.accumulator_ctrl.load_reciprocal = dp_load_reciprocal;
+    for (genvar i = 0; i < NUM_LANES; i++) begin : update_dpctrl
+        assign datapath_ctrl_o[i].accumulator_ctrl.acc_finished    = dp_acc_finished;
+        assign datapath_ctrl_o[i].accumulator_ctrl.acc_only        = acc_only & ~last;
+        assign datapath_ctrl_o[i].accumulator_ctrl.load_reciprocal = dp_load_reciprocal;
 
-    assign datapath_ctrl_o.max                              = state_slot_i.maximum;
-    assign datapath_ctrl_o.denominator                      = state_slot_i.denominator;
-    assign datapath_ctrl_o.accumulator_ctrl.reciprocal      = state_slot_i.denominator;
+        assign datapath_ctrl_o[i].dividing                        = dp_dividing;
+        assign datapath_ctrl_o[i].disable_max                     = dp_disable_max;
+        assign datapath_ctrl_o[i].clear_regs                      = clear_regs;
+        assign datapath_ctrl_o[i].load_max                        = dp_load_max;
+        assign datapath_ctrl_o[i].load_denominator                = dp_load_denominator;
+
+        assign datapath_ctrl_o[i].max                         = state_slot_i.maximum[i];
+        assign datapath_ctrl_o[i].denominator                 = state_slot_i.denominator[i];
+        assign datapath_ctrl_o[i].accumulator_ctrl.reciprocal = state_slot_i.denominator[i];
+    end
 
     assign acc_only                                         = reg_file.hwpe_params [COMMANDS] [CMD_ACC_ONLY];       // We stop as soon as the denominator is valid, no inversion is performed
     assign div_only                                         = reg_file.hwpe_params [COMMANDS] [CMD_DIV_ONLY];       // Only perform the normalisation step. The maximum and the denominator are recovered from the state slot
@@ -227,8 +230,10 @@ module softex_ctrl #(
     assign slot_ctrl_o.update_valid                         = state_slot_en;
     assign slot_ctrl_o.update_op.addr                       = current_slot;
     assign slot_ctrl_o.update_op.op                         = last & div_only ? FREE : UPDATE;   
-    assign slot_ctrl_o.update_op.maximum                    = datapath_flgs_i.max;
-    assign slot_ctrl_o.update_op.denominator                = (acc_only & ~last) ? datapath_flgs_i.accumulator_flags.denominator : datapath_flgs_i.accumulator_flags.reciprocal;
+    for (genvar i = 0; i < NUM_LANES; i++) begin : update_assign
+        assign slot_ctrl_o.update_op.maximum[i]               = datapath_flgs_i[i].max;
+        assign slot_ctrl_o.update_op.denominator[i]           = (acc_only & ~last) ? datapath_flgs_i[i].accumulator_flags.denominator : datapath_flgs_i[i].accumulator_flags.reciprocal;
+    end
 
     always_comb begin : ctrl_sfm
         next_state          = current_state;
@@ -321,7 +326,12 @@ module softex_ctrl #(
             end
 
             WAIT_DATAPATH_EMPTY: begin
-                if (~datapath_flgs_i.datapath_busy) begin
+                // if (~datapath_flgs_i[0].datapath_busy & ~datapath_flgs_i[1].datapath_busy & ~datapath_flgs_i[2].datapath_busy & ~datapath_flgs_i[3].datapath_busy) begin
+                //     next_state      = WAIT_ACCUMULATION;
+                //     dp_acc_finished = '1;
+                // end
+                if (~datapath_flgs_i[0].datapath_busy & ~datapath_flgs_i[1].datapath_busy & ~datapath_flgs_i[2].datapath_busy & ~datapath_flgs_i[3].datapath_busy) begin
+                //if (~(|{>>{datapath_flgs_i[0:3].datapath_busy}})) begin
                     next_state      = WAIT_ACCUMULATION;
                     dp_acc_finished = '1;
                 end
@@ -331,7 +341,8 @@ module softex_ctrl #(
                 dp_acc_finished = '1;
                 dp_disable_max  = '1;
 
-                if (datapath_flgs_i.accumulator_flags.acc_done) begin
+                //if (datapath_flgs_i.accumulator_flags.acc_done) begin
+                if (~datapath_flgs_i[0].accumulator_flags.acc_done & ~datapath_flgs_i[1].accumulator_flags.acc_done & ~datapath_flgs_i[2].accumulator_flags.acc_done & ~datapath_flgs_i[3].accumulator_flags.acc_done) begin
                     if (acc_only & ~last) begin
                         next_state          = FINISHED;
                     end else begin
@@ -350,7 +361,8 @@ module softex_ctrl #(
                 dp_dividing     = '1;
                 dp_disable_max  = '1;
 
-                if (datapath_flgs_i.accumulator_flags.inv_done) begin
+                //if (datapath_flgs_i.accumulator_flags.inv_done) begin
+                if (~datapath_flgs_i[0].accumulator_flags.inv_done & ~datapath_flgs_i[1].accumulator_flags.inv_done & ~datapath_flgs_i[2].accumulator_flags.inv_done & ~datapath_flgs_i[3].accumulator_flags.inv_done) begin
                     if (acc_only) begin
                         next_state = FINISHED;
                     end else begin

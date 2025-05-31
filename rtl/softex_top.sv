@@ -44,8 +44,8 @@ module softex_top #(
     cast_ctrl_t             in_cast_ctrl;
     cast_ctrl_t             out_cast_ctrl;
 
-    datapath_ctrl_t         datapath_ctrl;
-    datapath_flags_t        datapath_flgs;
+    datapath_ctrl_t         [NUM_LANES-1:0] datapath_ctrl;
+    datapath_flags_t        [NUM_LANES-1:0] datapath_flgs;
 
     slot_regfile_ctrl_t     slot_regfile_ctrl;
 
@@ -60,6 +60,15 @@ module softex_top #(
     hwpe_stream_intf_stream #(.DATA_WIDTH(ACTUAL_DW)) in_fifo_q (.clk(clk_i));
 
     logic   clear;
+
+    // Marius: multiple datapaths
+    // localparam int unsigned LANE_WIDTH = 16;
+    // localparam int unsigned NUM_LANES = 16;
+
+    // Declare the interfaces
+    hwpe_stream_intf_stream #(.DATA_WIDTH(LANE_WIDTH)) lane_in[NUM_LANES] (.clk(clk_i));
+    hwpe_stream_intf_stream #(.DATA_WIDTH(LANE_WIDTH)) lane_out[NUM_LANES] (.clk(clk_i));
+
 
     softex_ctrl #(
         .N_CORES    (   N_CORES     ),
@@ -110,19 +119,19 @@ module softex_top #(
         .pop_o      (   in_fifo_q   )
     );
 
-    softex_datapath #(
-        .DATA_WIDTH     (   ACTUAL_DW           ),
-        .IN_FPFORMAT    (   FPFORMAT            ),
-        .VECT_WIDTH     (   ACTUAL_DW / WIDTH   )
-    ) i_datapath (
-        .clk_i      (   clk_i                                   ),
-        .rst_ni     (   rst_ni                                  ),
-        .clear_i    (   clear                                   ),
-        .ctrl_i     (   datapath_ctrl                           ),
-        .flags_o    (   datapath_flgs                           ),
-        .stream_i   (   in_fifo_q                               ),
-        .stream_o   (   out_fifo_d                              )   
-    );
+    // softex_datapath #(
+    //     .DATA_WIDTH     (   ACTUAL_DW           ),
+    //     .IN_FPFORMAT    (   FPFORMAT            ),
+    //     .VECT_WIDTH     (   ACTUAL_DW / WIDTH   )
+    // ) i_datapath (
+    //     .clk_i      (   clk_i                                   ),
+    //     .rst_ni     (   rst_ni                                  ),
+    //     .clear_i    (   clear                                   ),
+    //     .ctrl_i     (   datapath_ctrl                           ),
+    //     .flags_o    (   datapath_flgs                           ),
+    //     .stream_i   (   in_fifo_q                               ),
+    //     .stream_o   (   out_fifo_d                              )   
+    // );
 
     hwpe_stream_fifo #(
         .DATA_WIDTH (   ACTUAL_DW  ),
@@ -160,5 +169,53 @@ module softex_top #(
         .slot_out_stream_i  (   slot_out_stream ), 
         .tcdm               (   tcdm            ) 
     );
+
+    // Marius: multiple datapaths
+
+    hwpe_stream_intf_stream #(.DATA_WIDTH(LANE_WIDTH)) pre_lane_in_fifo (.clk(clk_i));
+
+    // Instantiate the lane splitter
+    hwpe_stream_split #(
+        .NB_OUT_STREAMS(NUM_LANES),
+        .DATA_WIDTH_IN(ACTUAL_DW)
+    ) i_lane_splitter (
+        .clk_i   (clk_i),
+        .rst_ni  (rst_ni),
+        .clear_i (clear),
+
+        .push_i  (in_fifo_q.sink),
+        .pop_o   (lane_in.source)
+    );
+
+    hwpe_stream_merge #(
+            .NB_IN_STREAMS(NUM_LANES),
+            .DATA_WIDTH_IN(LANE_WIDTH)
+    ) i_lane_merge (
+            .clk_i(clk_i),
+            .rst_ni(rst_ni),
+            .clear_i(clear),
+
+            .push_i(lane_out.sink),
+            .pop_o(out_fifo_d.source)
+    );
+
+
+    // Generate the datapath lanes
+    for (genvar i = 0; i < NUM_LANES; i++) begin : gen_datapath_lanes
+        // Datapath instance
+        softex_datapath #(
+            .DATA_WIDTH     (LANE_WIDTH),
+            .IN_FPFORMAT    (FPFORMAT),
+            .VECT_WIDTH     (LANE_WIDTH / WIDTH)  // One element per cycle
+        ) i_datapath_lane (
+            .clk_i     (clk_i),
+            .rst_ni    (rst_ni),
+            .clear_i   (clear),
+            .ctrl_i    (datapath_ctrl[i]),
+            .flags_o   (datapath_flgs[i]),  // Need to OR these
+            .stream_i  (lane_in[i].sink),
+            .stream_o  (lane_out[i].source)
+        );
+    end
 
 endmodule

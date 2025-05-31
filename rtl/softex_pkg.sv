@@ -8,7 +8,7 @@
 import fpnew_pkg::*;
 
 package softex_pkg;
-    parameter int unsigned  DATA_W  = 128 + 32;
+    parameter int unsigned  DATA_W  = 256;
 
     parameter int unsigned  N_CTRL_CNTX         = 2;
     parameter int unsigned  N_CTRL_REGS         = 6;
@@ -36,7 +36,11 @@ package softex_pkg;
     parameter int unsigned  INT_W       = 8;
 
     parameter int unsigned  N_ROWS  = (DATA_W) / WIDTH_IN;
-    
+
+    // Marius: multiple datapath
+    localparam int unsigned NUM_LANES = 4;
+    localparam int unsigned LANE_WIDTH = 64;
+
     //Exponential unit constants
     parameter int unsigned  EXPU_A_FRACTION             = 14;
     parameter logic         EXPU_ENABLE_ROUNDING        = 1;
@@ -149,8 +153,8 @@ package softex_pkg;
     typedef enum logic {UPDATE, FREE} slot_update_op_e;
 
     typedef struct packed {
-        logic [WIDTH_IN - 1 : 0]    maximum;
-        logic [WIDTH_ACC - 1 : 0]   denominator;
+        logic [NUM_LANES-1:0][WIDTH_IN - 1 : 0]    maximum;
+        logic [NUM_LANES-1:0][WIDTH_ACC - 1 : 0]   denominator;
         logic                       valid;
     } slot_t;
 
@@ -163,8 +167,8 @@ package softex_pkg;
         slot_update_op_e                    op;
         logic [SLOT_ADDR_BITS -1 : 0]       addr;
 
-        logic [WIDTH_IN - 1 : 0]            maximum;
-        logic [WIDTH_ACC - 1 : 0]           denominator;
+        logic [NUM_LANES-1:0][WIDTH_IN - 1 : 0]            maximum;
+        logic [NUM_LANES-1:0][WIDTH_ACC - 1 : 0]           denominator;
     } slot_update_op_t;
 
     typedef struct packed {
