@@ -66,15 +66,71 @@ module softex_wrap #(
     };
     `HCI_INTF(tcdm, clk_i);
 
+    localparam int ROW = 32;
+    localparam int COLUMN = 8;
+
     hwpe_ctrl_intf_periph #(.ID_WIDTH(ID_WIDTH)) periph (.clk(clk_i));
 
     logic busy;
     logic [N_CORES-1:0][1:0] evt;
 
+    //logic [7:0] safe_addr_low;
+    //assign safe_addr_low = (tcdm.add === 'x || tcdm.add === 'z) ? 8'h00 : tcdm.add[7:0];
+
     `ifndef SYNTHESIS
         for(genvar ii=0; ii<MP; ii++) begin: gen_tcdm_binding
             assign tcdm_req_o       [ii] = tcdm.req;
-            assign tcdm_add_o       [ii] = tcdm.add + ii*8;
+            //assign tcdm_add_o       [ii] = tcdm.add + ii*32;
+
+            //FIX THATTTT
+
+            // case (tcdm.add[7:0]) inside
+            //     [8'h00:8'h3F] : assign tcdm_add_o[ii] <= tcdm.add + ii*32;
+            //     [8'h40:8'h5F] : assign tcdm_add_o[ii] <= tcdm.add + ((ii == 0) ? 0 : (ii == 1) ? +32 : (ii == 2) ? +32*2 : -32*2+8);
+            //     [8'h60:8'h7F] : assign tcdm_add_o[ii] <= tcdm.add + ((ii == 0) ? 0 : (ii == 1) ? +32 : (ii == 2) ? -32*2+8 : -32+8);
+            //     [8'h80:8'hFF] : assign tcdm_add_o[ii] <= tcdm.add + ((ii == 0) ? 0 : (ii == 1) ? -32*4+8 : (ii == 2) ? -32*3+8 : -32*2+8);
+            // endcase
+
+            // if(tcdm.add[7:0] <= 8'h3F) begin
+            //     assign tcdm_add_o[ii] = tcdm.add + ii * ROW;
+            // end else if (tcdm.add[7:0] >= 8'h40 && tcdm.add[7:0] <= 8'h5F) begin
+            //     assign tcdm_add_o[ii] = tcdm.add +
+            //         ((ii == 0) ? 0
+            //         : (ii == 1) ? (+ROW)
+            //         : (ii == 2) ? (+2*ROW)
+            //         :             (-2*ROW + COLUMN));
+            // end else if (tcdm.add[7:0] >= 8'h60 && tcdm.add[7:0] <= 8'h7F) begin
+            //     assign tcdm_add_o[ii] = tcdm.add +
+            //         ((ii == 0) ? 0
+            //         : (ii == 1) ? (+ROW)
+            //         : (ii == 2) ? (-3*ROW + COLUMN)
+            //         :             (-2*ROW + COLUMN));
+            // end else if (tcdm.add[7:0] >= 8'h80 && tcdm.add[7:0] <= 8'hFF) begin
+            //     assign tcdm_add_o[ii] = tcdm.add +
+            //         ((ii == 0) ? 0
+            //         : (ii == 1) ? (-4*ROW + COLUMN)
+            //         : (ii == 2) ? (-3*ROW + COLUMN)
+            //         :             (-2*ROW + COLUMN));
+            // end
+
+            // Use conditional assignment instead of case statement
+            assign tcdm_add_o[ii] = (tcdm.add[7:0] == 8'h00 || tcdm.add[7:0] == 8'h3F) ? (tcdm.add + ii*ROW) :
+                               (tcdm.add[7:0] == 8'h28) ? (tcdm.add + ((ii == 0) ? 0 : (ii == 1) ? ROW : (ii == 2) ? 2*ROW : -2*ROW+COLUMN)) :
+                               (tcdm.add[7:0] == 8'h40) ? (tcdm.add + ((ii == 0) ? 0 : (ii == 1) ? ROW : (ii == 2) ? 2*ROW : -2*ROW+COLUMN)) :
+                               (tcdm.add[7:0] == 8'h60) ? (tcdm.add + ((ii == 0) ? 0 : (ii == 1) ? ROW : (ii == 2) ? -2*ROW+COLUMN : -ROW+COLUMN)) :
+                               (tcdm.add[7:0] == 8'h80) ? (tcdm.add + ((ii == 0) ? 0 : (ii == 1) ? -4*ROW+COLUMN : (ii == 2) ? -3*ROW+COLUMN : -2*ROW+COLUMN)) :
+                               (tcdm.add + ii*ROW); // default case
+
+
+            // case (safe_addr_low)
+            //     8'h00 : assign tcdm_add_o[ii] = tcdm.add + ii*ROW;
+            //     8'h3F : assign tcdm_add_o[ii] = tcdm.add + ii*ROW;
+            //     8'h40 : assign tcdm_add_o[ii] = tcdm.add + ((ii == 0) ? 0 : (ii == 1) ? +ROW : (ii == 2) ? +2*ROW : -2*ROW+COLUMN);
+            //     8'h60 : assign tcdm_add_o[ii] = tcdm.add + ((ii == 0) ? 0 : (ii == 1) ? +ROW : (ii == 2) ? -2*ROW+COLUMN : -ROW+COLUMN);
+            //     8'h80 : assign tcdm_add_o[ii] = tcdm.add + ((ii == 0) ? 0 : (ii == 1) ? -4*ROW+COLUMN : (ii == 2) ? -3*ROW+COLUMN : -2*ROW+COLUMN);
+            //     default : assign tcdm_add_o[ii] = tcdm.add + ii*ROW;
+            // endcase
+
             assign tcdm_wen_o       [ii] = tcdm.wen;
             assign tcdm_be_o        [ii] = tcdm.be[(ii+1)*8-1:ii*8];
             assign tcdm_data_o      [ii] = tcdm.data[(ii+1)*64-1:ii*64];
@@ -142,13 +198,47 @@ module softex_wrap #(
                 // TCDM port
                 for (int ii = 0; ii < MP; ii++) begin
                     tcdm_req_o       [ii] <= tcdm.req;
-                    tcdm_add_o       [ii] <= tcdm.add + ii*8;
-                    tcdm_wen_o       [ii] <= tcdm.wen;
-                    tcdm_be_o        [ii] <= tcdm.be[ii*8+:8];
-                    tcdm_data_o      [ii] <= tcdm.data[ii*64+:64];
-                    tcdm_r_ready_o   [ii] <= tcdm.r_ready;
-                    tcdm_id_o        [ii] <= tcdm.id;
-                end
+                    //tcdm_add_o       [ii] <= tcdm.add + ii*32;
+                    
+
+
+                //     if(tcdm.add[7:0] <= 8'h3F) begin
+                //         tcdm_add_o[ii] <= tcdm.add + ii * ROW;
+                //     end else if (tcdm.add[7:0] >= 8'h40 && tcdm.add[7:0] <= 8'h5F) begin
+                //         tcdm_add_o[ii] <= tcdm.add +
+                //             ((ii == 0) ? 0
+                //             : (ii == 1) ? (+ROW)
+                //             : (ii == 2) ? (+2*ROW)
+                //             :             (-2*ROW + COLUMN));
+                //     end else if (tcdm.add[7:0] >= 8'h60 && tcdm.add[7:0] <= 8'h7F) begin
+                //         tcdm_add_o[ii] <= tcdm.add +
+                //             ((ii == 0) ? 0
+                //             : (ii == 1) ? +ROW
+                //             : (ii == 2) ? (-3*ROW + COLUMN)
+                //             :             (-2*ROW + COLUMN));
+                //     end else if (tcdm.add[7:0] >= 8'h80 && tcdm.add[7:0] <= 8'hFF) begin
+                //         tcdm_add_o[ii] <= tcdm.add +
+                //             ((ii == 0) ? 0
+                //             : (ii == 1) ? (-4*ROW + COLUMN)
+                //             : (ii == 2) ? (-3*ROW + COLUMN)
+                //             :             (-2*ROW + COLUMN));
+                //     end
+
+                //     tcdm_wen_o       [ii] <= tcdm.wen;
+                //     tcdm_be_o        [ii] <= tcdm.be[(ii+1)*8-1:ii*8];
+                //     tcdm_data_o      [ii] <= tcdm.data[(ii+1)*64-1:ii*64];
+                //     tcdm_r_ready_o   [ii] <= tcdm.r_ready;
+                //     tcdm_id_o        [ii] <= tcdm.id;
+                // end
+                case (tcdm.add[7:0])
+                    8'h00 : tcdm_add_o[ii] <= tcdm.add + ii*ROW;
+                    8'h3F : tcdm_add_o[ii] <= tcdm.add + ii*ROW;
+                    8'h28 : tcdm_add_o[ii] <= tcdm.add + ((ii == 0) ? 0 : (ii == 1) ? +ROW : (ii == 2) ? +2*ROW : -2*ROW+COLUMN);
+                    8'h40 : tcdm_add_o[ii] <= tcdm.add + ((ii == 0) ? 0 : (ii == 1) ? +ROW : (ii == 2) ? +2*ROW : -2*ROW+COLUMN);
+                    8'h60 : tcdm_add_o[ii] <= tcdm.add + ((ii == 0) ? 0 : (ii == 1) ? +ROW : (ii == 2) ? -2*ROW+COLUMN : -ROW+COLUMN);
+                    8'h80 : tcdm_add_o[ii] <= tcdm.add + ((ii == 0) ? 0 : (ii == 1) ? -4*ROW+COLUMN : (ii == 2) ? -3*ROW+COLUMN : -2*ROW+COLUMN);
+                    default : tcdm_add_o[ii] <= tcdm.add + ii*ROW;
+                endcase
 
                 tcdm.gnt     <= &(tcdm_gnt_i);
                 tcdm.r_valid <= &(tcdm_r_valid_i);

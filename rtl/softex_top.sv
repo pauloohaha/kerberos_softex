@@ -61,10 +61,6 @@ module softex_top #(
 
     logic   clear;
 
-    // Marius: multiple datapaths
-    // localparam int unsigned LANE_WIDTH = 16;
-    // localparam int unsigned NUM_LANES = 16;
-
     // Declare the interfaces
     hwpe_stream_intf_stream #(.DATA_WIDTH(LANE_WIDTH)) lane_in[NUM_LANES] (.clk(clk_i));
     hwpe_stream_intf_stream #(.DATA_WIDTH(LANE_WIDTH)) lane_out[NUM_LANES] (.clk(clk_i));
@@ -175,9 +171,11 @@ module softex_top #(
     hwpe_stream_intf_stream #(.DATA_WIDTH(LANE_WIDTH)) pre_lane_in_fifo (.clk(clk_i));
 
     // Instantiate the lane splitter
-    hwpe_stream_split #(
+    hwpe_stream_split_stride #(
         .NB_OUT_STREAMS(NUM_LANES),
-        .DATA_WIDTH_IN(ACTUAL_DW)
+        .DATA_WIDTH_IN(ACTUAL_DW),
+        .ELEMENT_WIDTH(16),
+        .ELEMENT_STRIDE(4)
     ) i_lane_splitter (
         .clk_i   (clk_i),
         .rst_ni  (rst_ni),
@@ -187,9 +185,11 @@ module softex_top #(
         .pop_o   (lane_in.source)
     );
 
-    hwpe_stream_merge #(
+    hwpe_stream_merge_stride #(
             .NB_IN_STREAMS(NUM_LANES),
-            .DATA_WIDTH_IN(LANE_WIDTH)
+            .DATA_WIDTH_IN(LANE_WIDTH),
+            .ELEMENT_WIDTH(16),
+            .ELEMENT_STRIDE(4)
     ) i_lane_merge (
             .clk_i(clk_i),
             .rst_ni(rst_ni),

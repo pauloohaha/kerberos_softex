@@ -153,6 +153,7 @@ module softex_ctrl #(
     assign length_lftovr        = reg_file.hwpe_params [TOT_LEN] [$clog2(DATA_WIDTH / 8) - 1 : 0];
 
     // If the total length of the vector is not a multiple of the data width we need to increse the number of loads / stores by one
+    //MARIUS: manually disabled it as this logic is not working right now.
     assign lftovr_inc           = length_lftovr != '0;
 
     // Same as before but with integer inputs
@@ -160,21 +161,53 @@ module softex_ctrl #(
 
     assign int_lftovr_inc       = int_length_lftovr != '0;
 
+//      *   +----------------------------------+----------------------+-------------------------------------------------------------------------------------------------------------+
+//  *   | **Name**                         | **Type**             | **Description**                                                                                             |
+//  *   +----------------------------------+----------------------+-------------------------------------------------------------------------------------------------------------+
+//  *   | *base_addr*                      | `logic[31:0]`        | Byte-aligned base address of the stream in the HWPE-accessible memory.                                      |
+//  *   +----------------------------------+----------------------+-------------------------------------------------------------------------------------------------------------+
+//  *   | *tot_len*                        | `logic[31:0]`        | Total number of transactions in stream; only the `TRANS_CNT` LSB are actually used.                         |
+//  *   +----------------------------------+----------------------+-------------------------------------------------------------------------------------------------------------+
+//  *   | *d0_len*                         | `logic[31:0]`        | d0 length in number of transactions                                                                         |
+//  *   +----------------------------------+----------------------+-------------------------------------------------------------------------------------------------------------+
+//  *   | *d0_stride*                      | `logic[31:0]`        | d0 stride in bytes                                                                                          |
+//  *   +----------------------------------+----------------------+-------------------------------------------------------------------------------------------------------------+
+//  *   | *d0_len*                         | `logic[31:0]`        | d0 length in number of transactions                                                                         |
+//  *   +----------------------------------+----------------------+-------------------------------------------------------------------------------------------------------------+
+//  *   | *d1_stride*                      | `logic[31:0]`        | d1 stride in bytes                                                                                          |
+//  *   +----------------------------------+----------------------+-------------------------------------------------------------------------------------------------------------+
+//  *   | *d1_len*                         | `logic[31:0]`        | d1 length in number of transactions                                                                         |
+//  *   +----------------------------------+----------------------+-------------------------------------------------------------------------------------------------------------+
+//  *   | *d2_stride*                      | `logic[31:0]`        | d2 stride in bytes                                                                                          |
+//  *   +----------------------------------+----------------------+-------------------------------------------------------------------------------------------------------------+
+//  *   | *d2_len*                         | `logic[31:0]`        | d2 length in number of transactions                                                                         |
+//  *   +----------------------------------+----------------------+-------------------------------------------------------------------------------------------------------------+
+//  *   | *d3_stride*                      | `logic[31:0]`        | d3 stride in bytes                                                                                          |
+//  * *   +----------------------------------+----------------------+-------------------------------------------------------------------------------------------------------------+
+//  *   | *dim_enable_1h*                  | `logic[2:0]`         | One-hot switch to enable 4-d counting (111), 3-d (011), 2-d (001), or 1-d (000).                                          |
+//  *   +----------------------------------+----------------------+-------------------------------------------------------------------------------------------------------------+
+
     assign in_stream_ctrl_o.req_start                       = in_start;
     assign in_stream_ctrl_o.addressgen_ctrl.base_addr       = reg_file.hwpe_params [IN_ADDR];
     assign in_stream_ctrl_o.addressgen_ctrl.tot_len         = cast_input ? reg_file.hwpe_params [TOT_LEN] / (DATA_WIDTH_INT / 8) + int_length_lftovr : reg_file.hwpe_params [TOT_LEN] / (DATA_WIDTH / 8) + lftovr_inc;
     assign in_stream_ctrl_o.addressgen_ctrl.d0_len          = reg_file.hwpe_params [TOT_LEN];   // Used by the strobe generator
-    assign in_stream_ctrl_o.addressgen_ctrl.d0_stride       = cast_input ? DATA_WIDTH_INT / 8 : DATA_WIDTH / 8;
+    assign in_stream_ctrl_o.addressgen_ctrl.d0_stride       = cast_input ? 4*DATA_WIDTH_INT / 8 : 4*DATA_WIDTH / 8;
     assign in_stream_ctrl_o.addressgen_ctrl.d1_len          = '0;
     assign in_stream_ctrl_o.addressgen_ctrl.d1_stride       = '0;
     assign in_stream_ctrl_o.addressgen_ctrl.d2_stride       = '0;
     assign in_stream_ctrl_o.addressgen_ctrl.dim_enable_1h   = '0;
 
+    // assign out_stream_ctrl_o.addressgen_ctrl.tot_len        = 1;//5*2;//cast_output ? reg_file.hwpe_params [TOT_LEN] / (DATA_WIDTH_INT / 8) + int_length_lftovr : reg_file.hwpe_params [TOT_LEN] / (DATA_WIDTH / 8) + lftovr_inc;
+    // assign out_stream_ctrl_o.addressgen_ctrl.d0_len         = 2;//reg_file.hwpe_params [TOT_LEN];   // Used by the strobe generator
+    // assign out_stream_ctrl_o.addressgen_ctrl.d0_stride      = 32;//384*2;//cast_output ? DATA_WIDTH_INT / 8 : DATA_WIDTH / 8;
+    // assign out_stream_ctrl_o.addressgen_ctrl.d1_len         = 5*2;//'0;
+    // assign out_stream_ctrl_o.addressgen_ctrl.d1_stride      = 1*2;//'0;
+
     assign out_stream_ctrl_o.req_start                      = out_start;
     assign out_stream_ctrl_o.addressgen_ctrl.base_addr      = reg_file.hwpe_params [OUT_ADDR];
     assign out_stream_ctrl_o.addressgen_ctrl.tot_len        = cast_output ? reg_file.hwpe_params [TOT_LEN] / (DATA_WIDTH_INT / 8) + int_length_lftovr : reg_file.hwpe_params [TOT_LEN] / (DATA_WIDTH / 8) + lftovr_inc;
     assign out_stream_ctrl_o.addressgen_ctrl.d0_len         = reg_file.hwpe_params [TOT_LEN];   // Used by the strobe generator
-    assign out_stream_ctrl_o.addressgen_ctrl.d0_stride      = cast_output ? DATA_WIDTH_INT / 8 : DATA_WIDTH / 8;
+    assign out_stream_ctrl_o.addressgen_ctrl.d0_stride      = cast_output ? 4*DATA_WIDTH_INT / 8 : 4*DATA_WIDTH / 8;
     assign out_stream_ctrl_o.addressgen_ctrl.d1_len         = '0;
     assign out_stream_ctrl_o.addressgen_ctrl.d1_stride      = '0;
     assign out_stream_ctrl_o.addressgen_ctrl.d2_stride      = '0;
@@ -330,7 +363,8 @@ module softex_ctrl #(
                 //     next_state      = WAIT_ACCUMULATION;
                 //     dp_acc_finished = '1;
                 // end
-                if (~datapath_flgs_i[0].datapath_busy & ~datapath_flgs_i[1].datapath_busy & ~datapath_flgs_i[2].datapath_busy & ~datapath_flgs_i[3].datapath_busy) begin
+                //MARIUS: TODO non hardcoded
+                if (~datapath_flgs_i[0].datapath_busy & ~datapath_flgs_i[1].datapath_busy & ~datapath_flgs_i[2].datapath_busy & ~datapath_flgs_i[3].datapath_busy) begin// & ~datapath_flgs_i[4].datapath_busy) begin
                 //if (~(|{>>{datapath_flgs_i[0:3].datapath_busy}})) begin
                     next_state      = WAIT_ACCUMULATION;
                     dp_acc_finished = '1;
@@ -342,7 +376,7 @@ module softex_ctrl #(
                 dp_disable_max  = '1;
 
                 //if (datapath_flgs_i.accumulator_flags.acc_done) begin
-                if (~datapath_flgs_i[0].accumulator_flags.acc_done & ~datapath_flgs_i[1].accumulator_flags.acc_done & ~datapath_flgs_i[2].accumulator_flags.acc_done & ~datapath_flgs_i[3].accumulator_flags.acc_done) begin
+                if (~datapath_flgs_i[0].accumulator_flags.acc_done & ~datapath_flgs_i[1].accumulator_flags.acc_done & ~datapath_flgs_i[2].accumulator_flags.acc_done & ~datapath_flgs_i[3].accumulator_flags.acc_done) begin// & ~datapath_flgs_i[4].accumulator_flags.acc_done) begin
                     if (acc_only & ~last) begin
                         next_state          = FINISHED;
                     end else begin
@@ -362,7 +396,7 @@ module softex_ctrl #(
                 dp_disable_max  = '1;
 
                 //if (datapath_flgs_i.accumulator_flags.inv_done) begin
-                if (~datapath_flgs_i[0].accumulator_flags.inv_done & ~datapath_flgs_i[1].accumulator_flags.inv_done & ~datapath_flgs_i[2].accumulator_flags.inv_done & ~datapath_flgs_i[3].accumulator_flags.inv_done) begin
+                if (~datapath_flgs_i[0].accumulator_flags.inv_done & ~datapath_flgs_i[1].accumulator_flags.inv_done & ~datapath_flgs_i[2].accumulator_flags.inv_done & ~datapath_flgs_i[3].accumulator_flags.inv_done) begin// & ~datapath_flgs_i[4].accumulator_flags.inv_done) begin
                     if (acc_only) begin
                         next_state = FINISHED;
                     end else begin

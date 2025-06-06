@@ -45,6 +45,8 @@ sources:
     - rtl/accumulator/softex_acc_datapath.sv
     - rtl/accumulator/softex_acc_top.sv
     - rtl/accumulator/softex_acc_den_inverter.sv
+    - rtl/hwpe_data/hwpe_stream_merge_stride.sv
+    - rtl/hwpe_data/hwpe_stream_split_stride.sv
 
     - target: softex_sim
       files:

@@ -259,8 +259,7 @@ module softex_slot_regfile #(
     //assign store_o.data     = {{((DATA_WIDTH - 64)){1'b0}}, {(32 - ACC_WIDTH){1'b0}}, {1'b1, slots_q[slot_out_ptr].denominator[ACC_WIDTH - 2 : 0]}, {(32 - IN_WIDTH){1'b0}}, slots_q[slot_out_ptr].maximum};
     assign store_o.data     = {{slots_q[slot_out_ptr].denominator[0]}, {slots_q[slot_out_ptr].maximum[0]},
                                {slots_q[slot_out_ptr].denominator[1]}, {slots_q[slot_out_ptr].maximum[1]},
-                               {slots_q[slot_out_ptr].denominator[2]}, {slots_q[slot_out_ptr].maximum[2]},
-                               {slots_q[slot_out_ptr].denominator[3]}, {slots_q[slot_out_ptr].maximum[3]}};
+                               {slots_q[slot_out_ptr].denominator[2]}, {slots_q[slot_out_ptr].maximum[2]}};
     //assign store_o.strb     = {{((DATA_WIDTH - 64) / 8){1'b0}}, {8{1'b1}}};
     assign store_o.strb     = {64{1'b1}};
 
@@ -406,6 +405,7 @@ module softex_slot_regfile #(
                 // slot_d.denominator[i]  = {1'b0, load_i.data [32 + ACC_WIDTH - 2 -: ACC_WIDTH - 1]};
                 // Each 64-bit chunk contains: {1'b1, denom[ACC_WIDTH-2:0], {(32-IN_WIDTH){1'b0}}, max[IN_WIDTH-1:0]}
                 // For 4 lanes, we have 4 such chunks in the 256-bit data bus
+                //MARIUS TODO: make it nicer    
                 case (i)
                     0: begin
                         slot_d.maximum[i]      = load_i.data[IN_WIDTH - 1 : 0];
