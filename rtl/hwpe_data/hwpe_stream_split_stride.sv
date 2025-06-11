@@ -49,8 +49,7 @@ import hwpe_stream_package::*;
 module hwpe_stream_split_stride #(
   parameter int unsigned NB_OUT_STREAMS = 4,
   parameter int unsigned DATA_WIDTH_IN = 256,
-  parameter int unsigned ELEMENT_WIDTH = 16,
-  parameter int unsigned ELEMENT_STRIDE = 4
+  parameter int unsigned ELEMENT_WIDTH = 16
 )
 (
   input  logic                   clk_i,
@@ -60,38 +59,53 @@ module hwpe_stream_split_stride #(
   hwpe_stream_intf_stream.sink   push_i,
   hwpe_stream_intf_stream.source pop_o [NB_OUT_STREAMS-1:0]
 );
-
+  parameter int unsigned  ELEMENT_STRIDE = DATA_WIDTH_IN/NB_OUT_STREAMS/ELEMENT_WIDTH;
   parameter int unsigned DATA_WIDTH_OUT = DATA_WIDTH_IN/NB_OUT_STREAMS;
   parameter int unsigned STRB_WIDTH_OUT = DATA_WIDTH_OUT/8;
-  parameter int unsigned STROBE_STRIDE = ELEMENT_STRIDE*DATA_WIDTH_OUT/8;
+  parameter int unsigned STROBE_STRIDE = ELEMENT_STRIDE*8;
 
 
   logic [NB_OUT_STREAMS-1:0] stream_ready;
+  logic all_ready;
 
-  generate
-
-    for(genvar ii=0; ii<NB_OUT_STREAMS; ii++) begin : stream_binding
-
-        for(genvar jj=0; jj<ELEMENT_STRIDE; jj++) begin : element_binding
-            // split data is bound in order
-            assign pop_o[ii].data[(jj+1)*ELEMENT_WIDTH-1:jj*ELEMENT_WIDTH]  = push_i.data [(ii+jj*ELEMENT_STRIDE+1)*ELEMENT_WIDTH-1:(ii+jj*ELEMENT_STRIDE)*ELEMENT_WIDTH];
-            //MARIUS: fix strobe
-            assign pop_o[ii].strb[(jj+1)*STRB_WIDTH_OUT-1:jj*STRB_WIDTH_OUT]  = push_i.strb [(ii+jj*STROBE_STRIDE+1)*STRB_WIDTH_OUT-1:(ii+jj*STROBE_STRIDE)*STRB_WIDTH_OUT];
-        end
+  logic transaction_pending;
+  logic [DATA_WIDTH_IN-1:0]   data_reg;
+  logic [(DATA_WIDTH_IN/8)-1:0] strb_reg;
 
 
 
-      // split valid is broadcast to all outgoing streams
-      assign pop_o[ii].valid = push_i.valid;
-
-      // auxiliary for ready generation
-      assign stream_ready[ii] = pop_o[ii].ready;
-
+always_ff @(posedge clk_i or negedge rst_ni) begin
+  if (!rst_ni || clear_i) begin
+    transaction_pending <= 1'b0;
+  end else begin
+    if (!transaction_pending && push_i.valid && all_ready) begin
+      data_reg <= push_i.data;
+      strb_reg <= push_i.strb;
+      transaction_pending <= 1'b1;
+    end else if (transaction_pending && all_ready) begin
+      transaction_pending <= 1'b0; // Finished
     end
+  end
+end
 
-  endgenerate
 
-  // ready only when all diverging streams are ready
-  assign push_i.ready = & stream_ready;
+for (genvar ii = 0; ii < NB_OUT_STREAMS; ii++) begin : stream_binding
+  
+
+  for (genvar jj = 0; jj < ELEMENT_STRIDE; jj++) begin
+    assign pop_o[ii].data[(jj+1)*ELEMENT_WIDTH-1:jj*ELEMENT_WIDTH] = data_reg[(ii + jj*ELEMENT_STRIDE + 1)*ELEMENT_WIDTH - 1 : (ii + jj*ELEMENT_STRIDE)*ELEMENT_WIDTH];
+  end
+
+  for (genvar mm = 0; mm < DATA_WIDTH_OUT/8; mm++) begin
+    assign pop_o[ii].strb[mm] = strb_reg[(mm*NB_OUT_STREAMS)+ii];
+  end
+
+  assign pop_o[ii].valid = transaction_pending;
+  assign stream_ready[ii] = pop_o[ii].ready;
+end
+
+assign all_ready = & stream_ready;
+assign push_i.ready = (!transaction_pending) && all_ready;
+
 
 endmodule // hwpe_stream_split_stride

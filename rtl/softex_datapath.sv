@@ -133,6 +133,16 @@ module softex_datapath #(
 
     assign flags_o.max  = new_max;
 
+    logic [(8/2)-1:0] reduced_strb;
+
+// MARIUS: temp fix for strobe as it has elemnt, but not byte encoding
+generate
+    for (genvar i = 0; i < 8/2; i++) begin : strb_reduce
+        assign reduced_strb[i] = stream_i.strb[2*i] & stream_i.strb[2*i+1];
+    end
+endgenerate
+
+
     softex_fp_glob_minmax #(
         .FPFORMAT   (   IN_FPFORMAT     ),
         .REG_POS    (   REG_POS         ),
@@ -146,7 +156,8 @@ module softex_datapath #(
         .valid_i         (  stream_i.valid & ~ctrl_i.disable_max            ),
         .ready_i         (  max_diff_ready & diff_ready                     ),
         .operation_i     (  softex_pkg::MAX                                 ),
-        .strb_i          (  stream_i.strb [VECT_WIDTH - 1 : 0]              ),
+        //.strb_i          (  stream_i.strb [VECT_WIDTH - 1 : 0]              ), //MARIUS: THIS IS A PROBLEM. IT IS 4 as in 4 elemetns per vector. HOWEVER we need 8.
+        .strb_i          (  reduced_strb                                    ),
         .vect_i          (  stream_i.data [VECT_WIDTH * IN_WIDTH - 1 : 0]   ),
         .load_i          (  ctrl_i.max                                      ),
         .load_en_i       (  ctrl_i.load_max                                 ),
@@ -239,7 +250,8 @@ module softex_datapath #(
         .valid_i    (   stream_i.valid                                  ),
         .ready_i    (   diff_ready                                      ),
         .data_i     (   stream_i.data [VECT_WIDTH * IN_WIDTH - 1 : 0]   ),
-        .strb_i     (   stream_i.strb [VECT_WIDTH - 1 : 0]              ),
+        //.strb_i     (   stream_i.strb [VECT_WIDTH - 1 : 0]              ),
+        .strb_i     (   reduced_strb                                    ),
         .valid_o    (   delay_valid                                     ),
         .ready_o    (   delay_ready                                     ),
         .data_o     (   delayed_data                                    ),

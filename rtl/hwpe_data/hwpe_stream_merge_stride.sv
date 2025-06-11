@@ -49,8 +49,7 @@ import hwpe_stream_package::*;
 module hwpe_stream_merge_stride #(
   parameter int unsigned NB_IN_STREAMS = 4,
   parameter int unsigned DATA_WIDTH_IN = 64,
-  parameter int unsigned ELEMENT_WIDTH = 16,
-  parameter int unsigned ELEMENT_STRIDE = 4
+  parameter int unsigned ELEMENT_WIDTH = 16
 )
 (
   input  logic                   clk_i,
@@ -64,32 +63,35 @@ module hwpe_stream_merge_stride #(
   parameter STRB_WIDTH_IN = DATA_WIDTH_IN / 8;
 
   logic [NB_IN_STREAMS-1:0] stream_valid;
+  logic all_valid;
+
 
   generate
 
     for(genvar ii=0; ii<NB_IN_STREAMS; ii++) begin : stream_binding
 
-      // split data is bound in order
-      //assign pop_o.data[(ii+1)*DATA_WIDTH_IN-1:ii*DATA_WIDTH_IN] = push_i[ii].data;
 
-      for(genvar jj=0; jj<ELEMENT_STRIDE; jj++) begin : element_binding
+      for(genvar jj=0; jj<DATA_WIDTH_IN/ELEMENT_WIDTH; jj++) begin : element_binding
         assign pop_o.data[(((jj*NB_IN_STREAMS + ii) + 1)*ELEMENT_WIDTH)-1 : (jj*NB_IN_STREAMS + ii)*ELEMENT_WIDTH] = push_i[ii].data[(jj+1)*ELEMENT_WIDTH-1:jj*ELEMENT_WIDTH];
       end
 
-        //MARIUS: TODO ADJUST STROBE
-      assign pop_o.strb[(ii+1)*STRB_WIDTH_IN-1:ii*STRB_WIDTH_IN] = push_i[ii].strb;
+
+      for(genvar mm=0; mm<DATA_WIDTH_IN/8; mm++) begin
+          assign pop_o.strb[mm*NB_IN_STREAMS+ii] = push_i[ii].strb[mm];
+      end
 
       // split ready is brodcast to all incoming streams
-      assign push_i[ii].ready = pop_o.ready;
+      assign push_i[ii].ready = pop_o.ready & all_valid;
 
       // auxiliary for ready generation
-      assign stream_valid[ii] = push_i[ii].valid;
+      assign stream_valid[ii] = push_i[ii].valid;   
 
     end
 
   endgenerate
 
   // valid only when all divergent streams are valid
-  assign pop_o.valid = & stream_valid;
+  assign all_valid = & stream_valid;
+  assign pop_o.valid = all_valid;
 
 endmodule // hwpe_stream_merge_stride

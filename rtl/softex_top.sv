@@ -174,8 +174,7 @@ module softex_top #(
     hwpe_stream_split_stride #(
         .NB_OUT_STREAMS(NUM_LANES),
         .DATA_WIDTH_IN(ACTUAL_DW),
-        .ELEMENT_WIDTH(16),
-        .ELEMENT_STRIDE(4)
+        .ELEMENT_WIDTH(WIDTH)
     ) i_lane_splitter (
         .clk_i   (clk_i),
         .rst_ni  (rst_ni),
@@ -188,8 +187,7 @@ module softex_top #(
     hwpe_stream_merge_stride #(
             .NB_IN_STREAMS(NUM_LANES),
             .DATA_WIDTH_IN(LANE_WIDTH),
-            .ELEMENT_WIDTH(16),
-            .ELEMENT_STRIDE(4)
+            .ELEMENT_WIDTH(WIDTH)
     ) i_lane_merge (
             .clk_i(clk_i),
             .rst_ni(rst_ni),
