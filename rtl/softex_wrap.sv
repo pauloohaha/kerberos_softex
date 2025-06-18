@@ -80,7 +80,7 @@ module softex_wrap #(
     `ifndef SYNTHESIS
         for(genvar ii=0; ii<MP; ii++) begin: gen_tcdm_binding
             assign tcdm_req_o       [ii] = tcdm.req;
-            //assign tcdm_add_o       [ii] = tcdm.add + ii*32;
+            assign tcdm_add_o       [ii] = tcdm.add + ii*ROW;
 
             //FIX THATTTT
 
@@ -114,12 +114,12 @@ module softex_wrap #(
             // end
 
             // Use conditional assignment instead of case statement
-            assign tcdm_add_o[ii] = (tcdm.add[7:0] == 8'h00 || tcdm.add[7:0] == 8'h3F) ? (tcdm.add + ii*ROW) :
-                               (tcdm.add[7:0] == 8'h28) ? (tcdm.add + ((ii == 0) ? 0 : (ii == 1) ? ROW : (ii == 2) ? 2*ROW : -2*ROW+COLUMN)) :
-                               (tcdm.add[7:0] == 8'h40) ? (tcdm.add + ((ii == 0) ? 0 : (ii == 1) ? ROW : (ii == 2) ? 2*ROW : -2*ROW+COLUMN)) :
-                               (tcdm.add[7:0] == 8'h60) ? (tcdm.add + ((ii == 0) ? 0 : (ii == 1) ? ROW : (ii == 2) ? -2*ROW+COLUMN : -ROW+COLUMN)) :
-                               (tcdm.add[7:0] == 8'h80) ? (tcdm.add + ((ii == 0) ? 0 : (ii == 1) ? -4*ROW+COLUMN : (ii == 2) ? -3*ROW+COLUMN : -2*ROW+COLUMN)) :
-                               (tcdm.add + ii*ROW); // default case
+            // assign tcdm_add_o[ii] = (tcdm.add[7:0] == 8'h00 || tcdm.add[7:0] == 8'h3F) ? (tcdm.add + ii*ROW) :
+            //                    (tcdm.add[7:0] == 8'h28) ? (tcdm.add + ((ii == 0) ? 0 : (ii == 1) ? ROW : (ii == 2) ? 2*ROW : -2*ROW+COLUMN)) :
+            //                    (tcdm.add[7:0] == 8'h40) ? (tcdm.add + ((ii == 0) ? 0 : (ii == 1) ? ROW : (ii == 2) ? 2*ROW : -2*ROW+COLUMN)) :
+            //                    (tcdm.add[7:0] == 8'h60) ? (tcdm.add + ((ii == 0) ? 0 : (ii == 1) ? ROW : (ii == 2) ? -2*ROW+COLUMN : -ROW+COLUMN)) :
+            //                    (tcdm.add[7:0] == 8'h80) ? (tcdm.add + ((ii == 0) ? 0 : (ii == 1) ? -4*ROW+COLUMN : (ii == 2) ? -3*ROW+COLUMN : -2*ROW+COLUMN)) :
+            //                    (tcdm.add + ii*ROW); // default case
 
 
             // case (safe_addr_low)
@@ -230,15 +230,16 @@ module softex_wrap #(
                 //     tcdm_r_ready_o   [ii] <= tcdm.r_ready;
                 //     tcdm_id_o        [ii] <= tcdm.id;
                 // end
-                case (tcdm.add[7:0])
-                    8'h00 : tcdm_add_o[ii] <= tcdm.add + ii*ROW;
-                    8'h3F : tcdm_add_o[ii] <= tcdm.add + ii*ROW;
-                    8'h28 : tcdm_add_o[ii] <= tcdm.add + ((ii == 0) ? 0 : (ii == 1) ? +ROW : (ii == 2) ? +2*ROW : -2*ROW+COLUMN);
-                    8'h40 : tcdm_add_o[ii] <= tcdm.add + ((ii == 0) ? 0 : (ii == 1) ? +ROW : (ii == 2) ? +2*ROW : -2*ROW+COLUMN);
-                    8'h60 : tcdm_add_o[ii] <= tcdm.add + ((ii == 0) ? 0 : (ii == 1) ? +ROW : (ii == 2) ? -2*ROW+COLUMN : -ROW+COLUMN);
-                    8'h80 : tcdm_add_o[ii] <= tcdm.add + ((ii == 0) ? 0 : (ii == 1) ? -4*ROW+COLUMN : (ii == 2) ? -3*ROW+COLUMN : -2*ROW+COLUMN);
-                    default : tcdm_add_o[ii] <= tcdm.add + ii*ROW;
-                endcase
+                tcdm_add_o[ii] <= tcdm.add + ii*ROW;
+                // case (tcdm.add[7:0])
+                //     8'h00 : tcdm_add_o[ii] <= tcdm.add + ii*ROW;
+                //     8'h3F : tcdm_add_o[ii] <= tcdm.add + ii*ROW;
+                //     8'h28 : tcdm_add_o[ii] <= tcdm.add + ((ii == 0) ? 0 : (ii == 1) ? +ROW : (ii == 2) ? +2*ROW : -2*ROW+COLUMN);
+                //     8'h40 : tcdm_add_o[ii] <= tcdm.add + ((ii == 0) ? 0 : (ii == 1) ? +ROW : (ii == 2) ? +2*ROW : -2*ROW+COLUMN); //MARIUS: does not work from 140 on..
+                //     8'h60 : tcdm_add_o[ii] <= tcdm.add + ((ii == 0) ? 0 : (ii == 1) ? +ROW : (ii == 2) ? -2*ROW+COLUMN : -ROW+COLUMN);
+                //     8'h80 : tcdm_add_o[ii] <= tcdm.add + ((ii == 0) ? 0 : (ii == 1) ? -4*ROW+COLUMN : (ii == 2) ? -3*ROW+COLUMN : -2*ROW+COLUMN);
+                //     default : tcdm_add_o[ii] <= tcdm.add + ii*ROW;
+                // endcase
 
                 tcdm.gnt     <= &(tcdm_gnt_i);
                 tcdm.r_valid <= &(tcdm_r_valid_i);
