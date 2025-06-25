@@ -259,7 +259,10 @@ module softex_slot_regfile #(
     //assign store_o.data     = {{((DATA_WIDTH - 64)){1'b0}}, {(32 - ACC_WIDTH){1'b0}}, {1'b1, slots_q[slot_out_ptr].denominator[ACC_WIDTH - 2 : 0]}, {(32 - IN_WIDTH){1'b0}}, slots_q[slot_out_ptr].maximum};
     assign store_o.data     = {{slots_q[slot_out_ptr].denominator[0]}, {slots_q[slot_out_ptr].maximum[0]},
                                {slots_q[slot_out_ptr].denominator[1]}, {slots_q[slot_out_ptr].maximum[1]},
-                               {slots_q[slot_out_ptr].denominator[2]}, {slots_q[slot_out_ptr].maximum[2]}};
+                               {slots_q[slot_out_ptr].denominator[2]}, {slots_q[slot_out_ptr].maximum[2]},
+                               {slots_q[slot_out_ptr].denominator[3]}, {slots_q[slot_out_ptr].maximum[3]}};
+
+                               //MARIUS TODO: Make it nicer
     //assign store_o.strb     = {{((DATA_WIDTH - 64) / 8){1'b0}}, {8{1'b1}}};
     assign store_o.strb     = {64{1'b1}};
 

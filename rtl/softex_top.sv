@@ -115,20 +115,6 @@ module softex_top #(
         .pop_o      (   in_fifo_q   )
     );
 
-    // softex_datapath #(
-    //     .DATA_WIDTH     (   ACTUAL_DW           ),
-    //     .IN_FPFORMAT    (   FPFORMAT            ),
-    //     .VECT_WIDTH     (   ACTUAL_DW / WIDTH   )
-    // ) i_datapath (
-    //     .clk_i      (   clk_i                                   ),
-    //     .rst_ni     (   rst_ni                                  ),
-    //     .clear_i    (   clear                                   ),
-    //     .ctrl_i     (   datapath_ctrl                           ),
-    //     .flags_o    (   datapath_flgs                           ),
-    //     .stream_i   (   in_fifo_q                               ),
-    //     .stream_o   (   out_fifo_d                              )   
-    // );
-
     hwpe_stream_fifo #(
         .DATA_WIDTH (   ACTUAL_DW  ),
         .FIFO_DEPTH (   2           )
@@ -166,11 +152,8 @@ module softex_top #(
         .tcdm               (   tcdm            ) 
     );
 
-    // Marius: multiple datapaths
-
     hwpe_stream_intf_stream #(.DATA_WIDTH(LANE_WIDTH)) pre_lane_in_fifo (.clk(clk_i));
 
-    // Instantiate the lane splitter
     hwpe_stream_split_stride #(
         .NB_OUT_STREAMS(NUM_LANES),
         .DATA_WIDTH_IN(ACTUAL_DW),
@@ -198,19 +181,17 @@ module softex_top #(
     );
 
 
-    // Generate the datapath lanes
     for (genvar i = 0; i < NUM_LANES; i++) begin : gen_datapath_lanes
-        // Datapath instance
         softex_datapath #(
             .DATA_WIDTH     (LANE_WIDTH),
             .IN_FPFORMAT    (FPFORMAT),
-            .VECT_WIDTH     (LANE_WIDTH / WIDTH)  // One element per cycle
+            .VECT_WIDTH     (LANE_WIDTH / WIDTH)
         ) i_datapath_lane (
             .clk_i     (clk_i),
             .rst_ni    (rst_ni),
             .clear_i   (clear),
             .ctrl_i    (datapath_ctrl[i]),
-            .flags_o   (datapath_flgs[i]),  // Need to OR these
+            .flags_o   (datapath_flgs[i]),
             .stream_i  (lane_in[i].sink),
             .stream_o  (lane_out[i].source)
         );

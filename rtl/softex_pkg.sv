@@ -37,7 +37,7 @@ package softex_pkg;
 
     parameter int unsigned  N_ROWS  = (DATA_W) / WIDTH_IN;
 
-    // Marius: multiple datapath
+    // Multiple datapaths
     localparam int unsigned NUM_LANES = 4;
     localparam int unsigned LANE_WIDTH = 64;
 

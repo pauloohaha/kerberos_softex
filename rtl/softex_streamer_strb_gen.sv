@@ -71,8 +71,8 @@ module softex_streamer_strb_gen #(
     end
 
     always_comb begin
-        if (handshake_cnt_q == (stream_ctrl_i.addressgen_ctrl.tot_len - 1)) begin //MARIUS: OTHERWISE THIS ALWAYS TRUE WTIH -1 // -1 is default
-            strb = final_strb;
+        if (handshake_cnt_q == (stream_ctrl_i.addressgen_ctrl.tot_len - 1)) begin
+            strb = final_strb; //MARIUS: for stream_ctrl_i.addressgen_ctrl.tot_len = 1 there is the issue that strobe will always be final strobe which is 0 in that case..
         end else begin
             strb = '1;
         end
@@ -85,11 +85,3 @@ module softex_streamer_strb_gen #(
     assign  stream_i.ready   = stream_o.ready;
     
 endmodule
-
-//MARIUS comment:
-//MARIUS TODO: fix this
-// I feel like something here is wrong or I do not get it.
-// For my understanding the whole handshake stuff should be disabled if no leftover.
-// But then tot_len is 1 and this gives a bug..
-
-// Check where else tot_len is used and what it means.
