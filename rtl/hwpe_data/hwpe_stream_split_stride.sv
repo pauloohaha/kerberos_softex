@@ -59,39 +59,61 @@ module hwpe_stream_split_stride #(
   hwpe_stream_intf_stream.sink   push_i,
   hwpe_stream_intf_stream.source pop_o [NB_OUT_STREAMS-1:0]
 );
-  parameter int unsigned  ELEMENT_STRIDE = DATA_WIDTH_IN/NB_OUT_STREAMS/ELEMENT_WIDTH;
+  parameter int unsigned ELEMENT_STRIDE = DATA_WIDTH_IN/NB_OUT_STREAMS/ELEMENT_WIDTH;
   parameter int unsigned DATA_WIDTH_OUT = DATA_WIDTH_IN/NB_OUT_STREAMS;
   parameter int unsigned STRB_WIDTH_OUT = DATA_WIDTH_OUT/8;
   parameter int unsigned STROBE_STRIDE = ELEMENT_STRIDE*8;
 
 
-  logic [NB_OUT_STREAMS-1:0] stream_ready;
-  logic all_ready;
+  // Track which output streams have already accepted (ready && valid) the word.
+  logic [NB_OUT_STREAMS-1:0] stream_served;
+  
+  // Intermediate signals to avoid non-constant indexing into interface arrays
+  logic [NB_OUT_STREAMS-1:0] pop_ready;
 
   logic transaction_pending;
   logic [DATA_WIDTH_IN-1:0]   data_reg;
   logic [(DATA_WIDTH_IN/8)-1:0] strb_reg;
 
-
+// Extract ready signals from interface array
+generate
+  for (genvar i = 0; i < NB_OUT_STREAMS; i++) begin : gen_ready_extract
+    assign pop_ready[i] = pop_o[i].ready;
+  end
+endgenerate
 
 always_ff @(posedge clk_i or negedge rst_ni) begin
   if (!rst_ni || clear_i) begin
     transaction_pending <= 1'b0;
+    stream_served       <= '0;
   end else begin
-    if (!transaction_pending && push_i.valid && all_ready) begin
-      data_reg <= push_i.data;
-      strb_reg <= push_i.strb;
-      transaction_pending <= 1'b1;
-    end else if (transaction_pending && all_ready) begin
-      transaction_pending <= 1'b0; // Finished
+
+    // Start a new transaction once the previous one is finished.
+    if (!transaction_pending) begin
+      if (push_i.valid) begin
+        data_reg           <= push_i.data;
+        strb_reg           <= push_i.strb;
+        transaction_pending <= 1'b1;
+        stream_served       <= '0; // none of the outputs have consumed the word yet
+      end
+    end else begin
+      // While a transaction is pending, record which outputs have accepted it
+      for (int i = 0; i < NB_OUT_STREAMS; i++) begin
+        if (!stream_served[i] && pop_ready[i]) begin
+          stream_served[i] <= 1'b1;
+        end
+      end
+
+      // When every stream has accepted the word we can finish the transaction
+      if (&stream_served) begin
+        transaction_pending <= 1'b0;
+      end
     end
   end
 end
 
-
 for (genvar ii = 0; ii < NB_OUT_STREAMS; ii++) begin : stream_binding
   
-
   for (genvar jj = 0; jj < ELEMENT_STRIDE; jj++) begin
     assign pop_o[ii].data[(jj+1)*ELEMENT_WIDTH-1:jj*ELEMENT_WIDTH] = data_reg[(ii + jj*ELEMENT_STRIDE + 1)*ELEMENT_WIDTH - 1 : (ii + jj*ELEMENT_STRIDE)*ELEMENT_WIDTH];
   end
@@ -100,12 +122,14 @@ for (genvar ii = 0; ii < NB_OUT_STREAMS; ii++) begin : stream_binding
     assign pop_o[ii].strb[mm] = strb_reg[(mm*NB_OUT_STREAMS)+ii];
   end
 
-  assign pop_o[ii].valid = transaction_pending;
-  assign stream_ready[ii] = pop_o[ii].ready;
+  // Assert valid only until the specific output has taken the word.
+  assign pop_o[ii].valid = transaction_pending && !stream_served[ii];
 end
 
-assign all_ready = & stream_ready;
-assign push_i.ready = (!transaction_pending) && all_ready;
-
+// The input can accept a new word whenever there is no transaction in
+// progress.
+// We do not  need to wait for a simultaneous `ready` from all
+// outputs because acceptance is tracked with `stream_served`.
+assign push_i.ready = !transaction_pending;
 
 endmodule // hwpe_stream_split_stride
