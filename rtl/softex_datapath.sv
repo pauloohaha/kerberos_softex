@@ -135,12 +135,12 @@ module softex_datapath #(
 
     logic [(8/2)-1:0] reduced_strb;
 
-// MARIUS: temp fix for strobe as it has elemnt, but not byte encoding
-generate
-    for (genvar i = 0; i < 8/2; i++) begin : strb_reduce
-        assign reduced_strb[i] = stream_i.strb[2*i] & stream_i.strb[2*i+1];
-    end
-endgenerate
+    // MARIUS: fix for strobe as it has element encoding not byte encoding
+    generate
+        for (genvar i = 0; i < 8/2; i++) begin : strb_reduce
+            assign reduced_strb[i] = stream_i.strb[2*i] & stream_i.strb[2*i+1];
+        end
+    endgenerate
 
 
     softex_fp_glob_minmax #(

@@ -39,7 +39,7 @@ package softex_pkg;
 
     // Multiple datapaths
     localparam int unsigned NUM_LANES = 4;
-    localparam int unsigned LANE_WIDTH = 64;
+    localparam int unsigned LANE_WIDTH = DATA_W/NUM_LANES;
 
     //Exponential unit constants
     parameter int unsigned  EXPU_A_FRACTION             = 14;

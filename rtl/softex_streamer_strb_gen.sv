@@ -72,7 +72,7 @@ module softex_streamer_strb_gen #(
 
     always_comb begin
         if (handshake_cnt_q == (stream_ctrl_i.addressgen_ctrl.tot_len - 1)) begin
-            strb = final_strb; //MARIUS: for stream_ctrl_i.addressgen_ctrl.tot_len = 1 there is the issue that strobe will always be final strobe which is 0 in that case..
+            strb = final_strb;
         end else begin
             strb = '1;
         end

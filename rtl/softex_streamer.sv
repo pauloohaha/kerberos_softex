@@ -140,7 +140,7 @@ module softex_streamer #(
     );
 
     hci_core_source #(
-        .MISALIGNED_ACCESSES    (   0                     ), //MARIUS: nonaligned
+        .MISALIGNED_ACCESSES    (   0                     ),
         .`HCI_SIZE_PARAM(tcdm)  (   `HCI_SIZE_PARAM(Tcdm) )
     ) i_stream_in (
         .clk_i          (   clk_i               ),

@@ -253,17 +253,15 @@ module softex_slot_regfile #(
     assign load_i.ready     = '1;
 
     assign store_o.valid    = store_valid;
-    //MARIUS: might need to be adapted for 64bit
-    // now adapted for 4 max and denom
 
-    //assign store_o.data     = {{((DATA_WIDTH - 64)){1'b0}}, {(32 - ACC_WIDTH){1'b0}}, {1'b1, slots_q[slot_out_ptr].denominator[ACC_WIDTH - 2 : 0]}, {(32 - IN_WIDTH){1'b0}}, slots_q[slot_out_ptr].maximum};
-    assign store_o.data     = {{slots_q[slot_out_ptr].denominator[0]}, {slots_q[slot_out_ptr].maximum[0]},
-                               {slots_q[slot_out_ptr].denominator[1]}, {slots_q[slot_out_ptr].maximum[1]},
-                               {slots_q[slot_out_ptr].denominator[2]}, {slots_q[slot_out_ptr].maximum[2]},
-                               {slots_q[slot_out_ptr].denominator[3]}, {slots_q[slot_out_ptr].maximum[3]}};
-
-                               //MARIUS TODO: Make it nicer
-    //assign store_o.strb     = {{((DATA_WIDTH - 64) / 8){1'b0}}, {8{1'b1}}};
+    generate
+        genvar lane;
+        logic [NUM_LANES-1:0][WIDTH_ACC+WIDTH_IN-1:0] lane_data;
+        for (lane = 0; lane < NUM_LANES; lane++) begin : gen_lane_data
+            assign lane_data[lane] = {slots_q[slot_out_ptr].denominator[lane], slots_q[slot_out_ptr].maximum[lane]};
+        end
+    endgenerate
+    assign store_o.data = lane_data;
     assign store_o.strb     = {64{1'b1}};
 
     assign load_ctrl_o.req_start                        = start_load;
@@ -388,12 +386,25 @@ module softex_slot_regfile #(
             end
 
             FINISHED: begin
-                //The sole purpose of this state is to wait one clock cycle before a laod/store
+                //The sole purpose of this state is to wait one clock cycle before a load/store
                 next_state = IDLE;
             end
         endcase
     end
 
+
+    localparam int CHUNK_SIZE = 64;    
+    logic [NUM_LANES-1:0][WIDTH_IN-1:0] load_maximum;
+    logic [NUM_LANES-1:0][WIDTH_ACC-1:0] load_denominator;
+    
+    generate
+        genvar lane_idx;
+        for (lane_idx = 0; lane_idx < NUM_LANES; lane_idx++) begin : gen_load_extract
+            assign load_maximum[lane_idx] = load_i.data[lane_idx*CHUNK_SIZE + IN_WIDTH - 1 : lane_idx*CHUNK_SIZE];
+            assign load_denominator[lane_idx] = {1'b0, load_i.data[lane_idx*CHUNK_SIZE + 32 + ACC_WIDTH - 2 -: ACC_WIDTH - 1]};
+        end
+    endgenerate
+    
     always_comb begin : slot_d_assignment
         slot_d = slots_q [target_slot_ptr];
 
@@ -404,29 +415,8 @@ module softex_slot_regfile #(
                 slot_d.denominator[i]  = current_update.denominator[i];
                 slot_d.maximum[i]      = current_update.maximum[i];
             end else if (load_i.valid) begin
-                // slot_d.maximum[i]      = load_i.data [IN_WIDTH - 1 : 0];
-                // slot_d.denominator[i]  = {1'b0, load_i.data [32 + ACC_WIDTH - 2 -: ACC_WIDTH - 1]};
-                // Each 64-bit chunk contains: {1'b1, denom[ACC_WIDTH-2:0], {(32-IN_WIDTH){1'b0}}, max[IN_WIDTH-1:0]}
-                // For 4 lanes, we have 4 such chunks in the 256-bit data bus
-                //MARIUS TODO: make it nicer    
-                case (i)
-                    0: begin
-                        slot_d.maximum[i]      = load_i.data[IN_WIDTH - 1 : 0];
-                        slot_d.denominator[i]  = {1'b0, load_i.data[32 + ACC_WIDTH - 2 -: ACC_WIDTH - 1]};
-                    end
-                    1: begin
-                        slot_d.maximum[i]      = load_i.data[64 + IN_WIDTH - 1 : 64];
-                        slot_d.denominator[i]  = {1'b0, load_i.data[96 + ACC_WIDTH - 2 -: ACC_WIDTH - 1]};
-                    end
-                    2: begin
-                        slot_d.maximum[i]      = load_i.data[128 + IN_WIDTH - 1 : 128];
-                        slot_d.denominator[i]  = {1'b0, load_i.data[160 + ACC_WIDTH - 2 -: ACC_WIDTH - 1]};
-                    end
-                    3: begin
-                        slot_d.maximum[i]      = load_i.data[192 + IN_WIDTH - 1 : 192];
-                        slot_d.denominator[i]  = {1'b0, load_i.data[224 + ACC_WIDTH - 2 -: ACC_WIDTH - 1]};
-                    end
-                endcase
+                slot_d.maximum[i]      = load_maximum[i];
+                slot_d.denominator[i]  = load_denominator[i];
             end
         end
 

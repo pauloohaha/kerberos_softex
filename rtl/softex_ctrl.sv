@@ -104,6 +104,11 @@ module softex_ctrl #(
     logic   lftovr_inc,
             int_lftovr_inc;
 
+    // Parameterizable helper signals for checking all lanes
+    logic   all_datapaths_idle;
+    logic   all_accumulators_done;
+    logic   all_inverters_done;
+
     hwpe_ctrl_package::ctrl_regfile_t   reg_file;
     hwpe_ctrl_package::ctrl_slave_t     ctrl_slave;
     hwpe_ctrl_package::flags_slave_t    flgs_slave;
@@ -160,31 +165,23 @@ module softex_ctrl #(
 
     assign int_lftovr_inc       = int_length_lftovr != '0;
 
-//  *   +----------------------------------+----------------------+-------------------------------------------------------------------------------------------------------------+
-//  *   | **Name**                         | **Type**             | **Description**                                                                                             |
-//  *   +----------------------------------+----------------------+-------------------------------------------------------------------------------------------------------------+
-//  *   | *base_addr*                      | `logic[31:0]`        | Byte-aligned base address of the stream in the HWPE-accessible memory.                                      |
-//  *   +----------------------------------+----------------------+-------------------------------------------------------------------------------------------------------------+
-//  *   | *tot_len*                        | `logic[31:0]`        | Total number of transactions in stream; only the `TRANS_CNT` LSB are actually used.                         |
-//  *   +----------------------------------+----------------------+-------------------------------------------------------------------------------------------------------------+
-//  *   | *d0_len*                         | `logic[31:0]`        | d0 length in number of transactions                                                                         |
-//  *   +----------------------------------+----------------------+-------------------------------------------------------------------------------------------------------------+
-//  *   | *d0_stride*                      | `logic[31:0]`        | d0 stride in bytes                                                                                          |
-//  *   +----------------------------------+----------------------+-------------------------------------------------------------------------------------------------------------+
-//  *   | *d0_len*                         | `logic[31:0]`        | d0 length in number of transactions                                                                         |
-//  *   +----------------------------------+----------------------+-------------------------------------------------------------------------------------------------------------+
-//  *   | *d1_stride*                      | `logic[31:0]`        | d1 stride in bytes                                                                                          |
-//  *   +----------------------------------+----------------------+-------------------------------------------------------------------------------------------------------------+
-//  *   | *d1_len*                         | `logic[31:0]`        | d1 length in number of transactions                                                                         |
-//  *   +----------------------------------+----------------------+-------------------------------------------------------------------------------------------------------------+
-//  *   | *d2_stride*                      | `logic[31:0]`        | d2 stride in bytes                                                                                          |
-//  *   +----------------------------------+----------------------+-------------------------------------------------------------------------------------------------------------+
-//  *   | *d2_len*                         | `logic[31:0]`        | d2 length in number of transactions                                                                         |
-//  *   +----------------------------------+----------------------+-------------------------------------------------------------------------------------------------------------+
-//  *   | *d3_stride*                      | `logic[31:0]`        | d3 stride in bytes                                                                                          |
-//  *   +----------------------------------+----------------------+-------------------------------------------------------------------------------------------------------------+
-//  *   | *dim_enable_1h*                  | `logic[2:0]`         | One-hot switch to enable 4-d counting (111), 3-d (011), 2-d (001), or 1-d (000).                            |
-//  *   +----------------------------------+----------------------+-------------------------------------------------------------------------------------------------------------+
+    // Parameterizable logic for checking all lanes
+    generate
+        genvar lane_check;
+        logic [NUM_LANES-1:0] datapath_busy_lanes;
+        logic [NUM_LANES-1:0] accumulator_done_lanes;
+        logic [NUM_LANES-1:0] inverter_done_lanes;
+        
+        for (lane_check = 0; lane_check < NUM_LANES; lane_check++) begin : gen_lane_checks
+            assign datapath_busy_lanes[lane_check] = datapath_flgs_i[lane_check].datapath_busy;
+            assign accumulator_done_lanes[lane_check] = datapath_flgs_i[lane_check].accumulator_flags.acc_done;
+            assign inverter_done_lanes[lane_check] = datapath_flgs_i[lane_check].accumulator_flags.inv_done;
+        end
+    endgenerate
+    
+    assign all_datapaths_idle = ~(|datapath_busy_lanes);
+    assign all_accumulators_done = ~(|accumulator_done_lanes);
+    assign all_inverters_done = ~(|inverter_done_lanes);
 
     assign in_stream_ctrl_o.req_start                       = in_start;
     assign in_stream_ctrl_o.addressgen_ctrl.base_addr       = reg_file.hwpe_params [IN_ADDR];
@@ -352,13 +349,7 @@ module softex_ctrl #(
             end
 
             WAIT_DATAPATH_EMPTY: begin
-                // if (~datapath_flgs_i[0].datapath_busy & ~datapath_flgs_i[1].datapath_busy & ~datapath_flgs_i[2].datapath_busy & ~datapath_flgs_i[3].datapath_busy) begin
-                //     next_state      = WAIT_ACCUMULATION;
-                //     dp_acc_finished = '1;
-                // end
-                //MARIUS: TODO non hardcoded
-                if (~datapath_flgs_i[0].datapath_busy & ~datapath_flgs_i[1].datapath_busy & ~datapath_flgs_i[2].datapath_busy & ~datapath_flgs_i[3].datapath_busy) begin// & ~datapath_flgs_i[4].datapath_busy) begin
-                //if (~(|{>>{datapath_flgs_i[0:3].datapath_busy}})) begin
+                if (all_datapaths_idle) begin
                     next_state      = WAIT_ACCUMULATION;
                     dp_acc_finished = '1;
                 end
@@ -368,8 +359,7 @@ module softex_ctrl #(
                 dp_acc_finished = '1;
                 dp_disable_max  = '1;
 
-                //if (datapath_flgs_i.accumulator_flags.acc_done) begin
-                if (~datapath_flgs_i[0].accumulator_flags.acc_done & ~datapath_flgs_i[1].accumulator_flags.acc_done & ~datapath_flgs_i[2].accumulator_flags.acc_done & ~datapath_flgs_i[3].accumulator_flags.acc_done) begin// & ~datapath_flgs_i[4].accumulator_flags.acc_done) begin
+                if (all_accumulators_done) begin
                     if (acc_only & ~last) begin
                         next_state          = FINISHED;
                     end else begin
@@ -388,8 +378,7 @@ module softex_ctrl #(
                 dp_dividing     = '1;
                 dp_disable_max  = '1;
 
-                //if (datapath_flgs_i.accumulator_flags.inv_done) begin
-                if (~datapath_flgs_i[0].accumulator_flags.inv_done & ~datapath_flgs_i[1].accumulator_flags.inv_done & ~datapath_flgs_i[2].accumulator_flags.inv_done & ~datapath_flgs_i[3].accumulator_flags.inv_done) begin// & ~datapath_flgs_i[4].accumulator_flags.inv_done) begin
+                if (all_inverters_done) begin
                     if (acc_only) begin
                         next_state = FINISHED;
                     end else begin
