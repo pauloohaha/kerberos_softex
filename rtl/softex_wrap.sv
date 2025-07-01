@@ -176,6 +176,7 @@ module softex_wrap #(
                 busy_o           <= busy;
                 evt_o            <= evt;
         end
+    end
     `endif
 
     softex_top #(
