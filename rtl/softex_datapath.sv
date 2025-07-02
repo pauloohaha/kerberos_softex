@@ -133,11 +133,11 @@ module softex_datapath #(
 
     assign flags_o.max  = new_max;
 
-    logic [(8/2)-1:0] reduced_strb;
+    logic [(DATA_WIDTH/IN_WIDTH)-1:0] reduced_strb;
 
     // MARIUS: fix for strobe as it has element encoding not byte encoding
     generate
-        for (genvar i = 0; i < 8/2; i++) begin : strb_reduce
+        for (genvar i = 0; i < DATA_WIDTH/IN_WIDTH; i++) begin : strb_reduce
             assign reduced_strb[i] = stream_i.strb[2*i] & stream_i.strb[2*i+1];
         end
     endgenerate

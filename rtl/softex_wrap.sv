@@ -66,8 +66,7 @@ module softex_wrap #(
     };
     `HCI_INTF(tcdm, clk_i);
 
-    localparam int ROW = 32;
-    localparam int COLUMN = 8;
+    localparam int ROW = 8;
 
     hwpe_ctrl_intf_periph #(.ID_WIDTH(ID_WIDTH)) periph (.clk(clk_i));
 
