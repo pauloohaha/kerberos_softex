@@ -83,9 +83,13 @@ generate
 endgenerate
 
 always_ff @(posedge clk_i or negedge rst_ni) begin
-  if (!rst_ni || clear_i) begin
+  if (~rst_ni) begin
     transaction_pending <= 1'b0;
     stream_served       <= '0;
+  end
+  else if (clear_i) begin
+      transaction_pending <= 1'b0;
+      stream_served       <= '0;
   end else begin
 
     // Start a new transaction once the previous one is finished.

@@ -15,7 +15,7 @@ import softex_pkg::*;
 module softex_top #(
     parameter fpnew_pkg::fp_format_e    FPFORMAT    = FPFORMAT_IN   ,
     parameter int unsigned              INT_WIDTH   = INT_W         ,
-    parameter int unsigned              N_CORES     = 8,
+    parameter int unsigned              N_CORES     = 2,
     parameter hci_size_parameter_t `HCI_SIZE_PARAM(Tcdm) = '0
 ) (
     input   logic                           clk_i   ,

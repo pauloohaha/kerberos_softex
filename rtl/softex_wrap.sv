@@ -13,8 +13,8 @@ import hwpe_ctrl_package::*;
 import softex_pkg::*;
 
 module softex_wrap #(
-    parameter int unsigned              ID_WIDTH    = 8             ,
-    parameter int unsigned              N_CORES     = 8             ,
+    parameter int unsigned              ID_WIDTH    = 2             ,
+    parameter int unsigned              N_CORES     = 2             ,
     parameter int unsigned              DW          = DATA_W        ,
     parameter int unsigned              MP          = DW / 64       ,
     parameter fpnew_pkg::fp_format_e    FPFORMAT    = FPFORMAT_IN   
