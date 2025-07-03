@@ -53,8 +53,8 @@ module softex_top #(
 
     hwpe_stream_intf_stream #(.DATA_WIDTH(ACTUAL_DW)) in_stream        (.clk(clk_i));
     hwpe_stream_intf_stream #(.DATA_WIDTH(ACTUAL_DW)) out_stream       (.clk(clk_i));
-    hwpe_stream_intf_stream #(.DATA_WIDTH(ACTUAL_DW)) slot_in_stream   (.clk(clk_i));
-    hwpe_stream_intf_stream #(.DATA_WIDTH(ACTUAL_DW)) slot_out_stream  (.clk(clk_i));
+    hwpe_stream_intf_stream #(.DATA_WIDTH(NUM_LANES*(3*WIDTH))) slot_in_stream   (.clk(clk_i));
+    hwpe_stream_intf_stream #(.DATA_WIDTH(NUM_LANES*(3*WIDTH))) slot_out_stream  (.clk(clk_i));
 
     hwpe_stream_intf_stream #(.DATA_WIDTH(ACTUAL_DW)) out_fifo_d (.clk(clk_i));
     hwpe_stream_intf_stream #(.DATA_WIDTH(ACTUAL_DW)) in_fifo_q (.clk(clk_i));
