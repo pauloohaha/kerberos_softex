@@ -38,7 +38,7 @@ package softex_pkg;
     parameter int unsigned  N_ROWS  = (DATA_W) / WIDTH_IN;
 
     // Multiple datapaths
-    localparam int unsigned NUM_LANES = 16;
+    localparam int unsigned NUM_LANES = 1;
     localparam int unsigned LANE_WIDTH = DATA_W/NUM_LANES;
 
     //Exponential unit constants

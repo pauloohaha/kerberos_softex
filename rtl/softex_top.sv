@@ -154,31 +154,31 @@ module softex_top #(
 
     hwpe_stream_intf_stream #(.DATA_WIDTH(LANE_WIDTH)) pre_lane_in_fifo (.clk(clk_i));
 
-    hwpe_stream_split_stride #(
-        .NB_OUT_STREAMS(NUM_LANES),
-        .DATA_WIDTH_IN(ACTUAL_DW),
-        .ELEMENT_WIDTH(WIDTH)
-    ) i_lane_splitter (
-        .clk_i   (clk_i),
-        .rst_ni  (rst_ni),
-        .clear_i (clear),
+    // hwpe_stream_split_stride #(
+    //     .NB_OUT_STREAMS(NUM_LANES),
+    //     .DATA_WIDTH_IN(ACTUAL_DW),
+    //     .ELEMENT_WIDTH(WIDTH)
+    // ) i_lane_splitter (
+    //     .clk_i   (clk_i),
+    //     .rst_ni  (rst_ni),
+    //     .clear_i (clear),
 
-        .push_i  (in_fifo_q.sink),
-        .pop_o   (lane_in.source)
-    );
+    //     .push_i  (),
+    //     .pop_o   (lane_in.source)
+    // );
 
-    hwpe_stream_merge_stride #(
-            .NB_IN_STREAMS(NUM_LANES),
-            .DATA_WIDTH_IN(LANE_WIDTH),
-            .ELEMENT_WIDTH(WIDTH)
-    ) i_lane_merge (
-            .clk_i(clk_i),
-            .rst_ni(rst_ni),
-            .clear_i(clear),
+    // hwpe_stream_merge_stride #(
+    //         .NB_IN_STREAMS(NUM_LANES),
+    //         .DATA_WIDTH_IN(LANE_WIDTH),
+    //         .ELEMENT_WIDTH(WIDTH)
+    // ) i_lane_merge (
+    //         .clk_i(clk_i),
+    //         .rst_ni(rst_ni),
+    //         .clear_i(clear),
 
-            .push_i(lane_out.sink),
-            .pop_o(out_fifo_d.source)
-    );
+    //         .push_i(lane_out.sink),
+    //         .pop_o()
+    // );
 
 
     for (genvar i = 0; i < NUM_LANES; i++) begin : gen_datapath_lanes
@@ -192,8 +192,8 @@ module softex_top #(
             .clear_i   (clear),
             .ctrl_i    (datapath_ctrl[i]),
             .flags_o   (datapath_flgs[i]),
-            .stream_i  (lane_in[i].sink),
-            .stream_o  (lane_out[i].source)
+            .stream_i  (in_fifo_q.sink),
+            .stream_o  (out_fifo_d.source)
         );
     end
 
