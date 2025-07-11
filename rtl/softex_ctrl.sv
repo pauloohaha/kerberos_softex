@@ -188,7 +188,7 @@ module softex_ctrl #(
     assign in_stream_ctrl_o.addressgen_ctrl.tot_len         = cast_input ? reg_file.hwpe_params [TOT_LEN] / (DATA_WIDTH_INT / 8) + int_length_lftovr : reg_file.hwpe_params [TOT_LEN] / (DATA_WIDTH / 8) + lftovr_inc;
     assign in_stream_ctrl_o.addressgen_ctrl.d0_len          = reg_file.hwpe_params [TOT_LEN];   // Used by the strobe generator
     //MARIUS: do it TOT_LEN dependent here. Now 24, before it was 4.
-    assign in_stream_ctrl_o.addressgen_ctrl.d0_stride       = cast_input ? 24*DATA_WIDTH_INT / 8 : 24*DATA_WIDTH / 8; //MARIUS TODO: reg parameter. //This should skip one "row" of elements. 4 in our case as 4 tcdm requests per row.
+    assign in_stream_ctrl_o.addressgen_ctrl.d0_stride       = cast_input ? DATA_WIDTH_INT / 8 : DATA_WIDTH / 8; //MARIUS TODO: reg parameter. //This should skip one "row" of elements. 4 in our case as 4 tcdm requests per row.
     assign in_stream_ctrl_o.addressgen_ctrl.d1_len          = '0;
     assign in_stream_ctrl_o.addressgen_ctrl.d1_stride       = '0;
     assign in_stream_ctrl_o.addressgen_ctrl.d2_stride       = '0;
@@ -198,7 +198,7 @@ module softex_ctrl #(
     assign out_stream_ctrl_o.addressgen_ctrl.base_addr      = reg_file.hwpe_params [OUT_ADDR];
     assign out_stream_ctrl_o.addressgen_ctrl.tot_len        = cast_output ? reg_file.hwpe_params [TOT_LEN] / (DATA_WIDTH_INT / 8) + int_length_lftovr : reg_file.hwpe_params [TOT_LEN] / (DATA_WIDTH / 8) + lftovr_inc;
     assign out_stream_ctrl_o.addressgen_ctrl.d0_len         = reg_file.hwpe_params [TOT_LEN];   // Used by the strobe generator
-    assign out_stream_ctrl_o.addressgen_ctrl.d0_stride      = cast_output ? 24*DATA_WIDTH_INT / 8 : 24*DATA_WIDTH / 8;
+    assign out_stream_ctrl_o.addressgen_ctrl.d0_stride      = cast_output ? DATA_WIDTH_INT / 8 : DATA_WIDTH / 8;
     assign out_stream_ctrl_o.addressgen_ctrl.d1_len         = '0;
     assign out_stream_ctrl_o.addressgen_ctrl.d1_stride      = '0;
     assign out_stream_ctrl_o.addressgen_ctrl.d2_stride      = '0;

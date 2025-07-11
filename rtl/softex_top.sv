@@ -152,8 +152,6 @@ module softex_top #(
         .tcdm               (   tcdm            ) 
     );
 
-    hwpe_stream_intf_stream #(.DATA_WIDTH(LANE_WIDTH)) pre_lane_in_fifo (.clk(clk_i));
-
     // hwpe_stream_split_stride #(
     //     .NB_OUT_STREAMS(NUM_LANES),
     //     .DATA_WIDTH_IN(ACTUAL_DW),
