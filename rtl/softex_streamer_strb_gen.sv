@@ -72,7 +72,7 @@ module softex_streamer_strb_gen #(
 
     always_comb begin
         if (handshake_cnt_q == (stream_ctrl_i.addressgen_ctrl.tot_len - 1)) begin
-            strb = '1;//final_strb; //MARIUS: hardcoded quick fix.
+            strb = final_strb; //MARIUS: hardcoded quick fix.
         end else begin
             strb = '1;
         end
