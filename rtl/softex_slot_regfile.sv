@@ -393,7 +393,7 @@ module softex_slot_regfile #(
     end
 
 
-    localparam int CHUNK_SIZE = 64;    
+    localparam int CHUNK_SIZE = WIDTH_IN + WIDTH_ACC;    
     logic [NUM_LANES-1:0][WIDTH_IN-1:0] load_maximum;
     logic [NUM_LANES-1:0][WIDTH_ACC-1:0] load_denominator;
     
@@ -401,7 +401,7 @@ module softex_slot_regfile #(
         genvar lane_idx;
         for (lane_idx = 0; lane_idx < NUM_LANES; lane_idx++) begin : gen_load_extract
             assign load_maximum[lane_idx] = load_i.data[lane_idx*CHUNK_SIZE + IN_WIDTH - 1 : lane_idx*CHUNK_SIZE];
-            assign load_denominator[lane_idx] = {1'b0, load_i.data[lane_idx*CHUNK_SIZE + 32 + ACC_WIDTH - 2 -: ACC_WIDTH - 1]};
+            assign load_denominator[lane_idx] = load_i.data[lane_idx*CHUNK_SIZE + IN_WIDTH +  WIDTH_ACC - 1: lane_idx*CHUNK_SIZE + IN_WIDTH];
         end
     endgenerate
     
