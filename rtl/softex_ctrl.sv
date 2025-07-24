@@ -179,9 +179,32 @@ module softex_ctrl #(
         end
     endgenerate
     
+    logic [NUM_LANES-1:0] accumulator_done_lanes_q;
+    logic [NUM_LANES-1:0] inverter_done_lanes_q;
+
     assign all_datapaths_idle = ~(|datapath_busy_lanes);
-    assign all_accumulators_done = ~(|accumulator_done_lanes);
-    assign all_inverters_done = ~(|inverter_done_lanes);
+    assign all_accumulators_done = &accumulator_done_lanes_q;
+    assign all_inverters_done   = &inverter_done_lanes_q;
+
+    always_ff @(posedge clk_i or negedge rst_ni) begin
+        if (~rst_ni) begin
+            accumulator_done_lanes_q <= '0;
+            inverter_done_lanes_q    <= '0;
+        end else begin
+            // If all lanes are done, reset the latches. Otherwise, latch incoming done signals.
+            if (all_accumulators_done) begin
+                accumulator_done_lanes_q <= '0;
+            end else begin
+                accumulator_done_lanes_q <= accumulator_done_lanes_q | accumulator_done_lanes;
+            end
+
+            if (all_inverters_done) begin
+                inverter_done_lanes_q <= '0;
+            end else begin
+                inverter_done_lanes_q <= inverter_done_lanes_q | inverter_done_lanes;
+            end
+        end
+    end
 
     assign in_stream_ctrl_o.req_start                       = in_start;
     assign in_stream_ctrl_o.addressgen_ctrl.base_addr       = reg_file.hwpe_params [IN_ADDR];
