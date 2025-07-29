@@ -1,3 +1,5 @@
+// Author: Marius Siebenaller, <sieben@stanford.edu>
+// Adapted from:
 /*
  * hwpe_stream_split.sv
  * Francesco Conti <f.conti@unibo.it>
@@ -60,80 +62,114 @@ module hwpe_stream_split_stride #(
   hwpe_stream_intf_stream.source pop_o [NB_OUT_STREAMS-1:0]
 );
   parameter int unsigned ELEMENT_STRIDE = DATA_WIDTH_IN/NB_OUT_STREAMS/ELEMENT_WIDTH;
+  parameter int unsigned STROBE_STRIDE = ELEMENT_STRIDE*8;
   parameter int unsigned DATA_WIDTH_OUT = DATA_WIDTH_IN/NB_OUT_STREAMS;
   parameter int unsigned STRB_WIDTH_OUT = DATA_WIDTH_OUT/8;
-  parameter int unsigned STROBE_STRIDE = ELEMENT_STRIDE*8;
 
+  // FSM states
+  typedef enum logic [0:0] {BYPASS, LATCHING} state_e;
+  state_e state_q, state_d;
 
   // Track which output streams have already accepted (ready && valid) the word.
-  logic [NB_OUT_STREAMS-1:0] stream_served;
-  
-  // Intermediate signals to avoid non-constant indexing into interface arrays
+  logic [NB_OUT_STREAMS-1:0] stream_served_q, stream_served_d;
+
+  // Intermediate signals
   logic [NB_OUT_STREAMS-1:0] pop_ready;
+  logic                      all_pops_ready;
+  logic                      some_pops_ready;
 
-  logic transaction_pending;
-  logic [DATA_WIDTH_IN-1:0]   data_reg;
-  logic [(DATA_WIDTH_IN/8)-1:0] strb_reg;
+  // Registered data
+  logic [DATA_WIDTH_IN-1:0]     data_q;
+  logic [(DATA_WIDTH_IN/8)-1:0] strb_q;
 
-// Extract ready signals from interface array
-generate
-  for (genvar i = 0; i < NB_OUT_STREAMS; i++) begin : gen_ready_extract
-    assign pop_ready[i] = pop_o[i].ready;
-  end
-endgenerate
+  // Extract ready signals from interface array
+  generate
+    for (genvar i = 0; i < NB_OUT_STREAMS; i++) begin : gen_ready_extract
+      assign pop_ready[i] = pop_o[i].ready;
+    end
+  endgenerate
 
-always_ff @(posedge clk_i or negedge rst_ni) begin
-  if (~rst_ni) begin
-    transaction_pending <= 1'b0;
-    stream_served       <= '0;
-  end
-  else if (clear_i) begin
-      transaction_pending <= 1'b0;
-      stream_served       <= '0;
-  end else begin
+  // Combinational Logic
+  always_comb begin
+    // Default assignments
+    state_d         = state_q;
+    stream_served_d = stream_served_q;
+    push_i.ready    = 1'b0;
 
-    // Start a new transaction once the previous one is finished.
-    if (!transaction_pending) begin
-      if (push_i.valid) begin
-        data_reg           <= push_i.data;
-        strb_reg           <= push_i.strb;
-        transaction_pending <= 1'b1;
-        stream_served       <= '0; // none of the outputs have consumed the word yet
-      end
-    end else begin
-      // While a transaction is pending, record which outputs have accepted it
-      for (int i = 0; i < NB_OUT_STREAMS; i++) begin
-        if (!stream_served[i] && pop_ready[i]) begin
-          stream_served[i] <= 1'b1;
+    all_pops_ready = &pop_ready;
+    some_pops_ready = |pop_ready;
+
+    case (state_q)
+      BYPASS: begin
+        // If all outputs are ready, we are in bypass mode.
+        // The input is ready, and we can accept a new transaction immediately.
+        if (all_pops_ready) begin
+          push_i.ready = 1'b1;
+          // If the input is valid, we stay in BYPASS (bypass)
+          // otherwise we stay in BYPASS and wait.
+          state_d = BYPASS;
+        end
+        // If only some outputs are ready, we enter the LATCHING state to register the transaction.
+        else if (some_pops_ready && push_i.valid) begin
+          state_d         = LATCHING;
+          stream_served_d = pop_ready;
         end
       end
 
-      // When every stream has accepted the word we can finish the transaction
-      if (&stream_served) begin
-        transaction_pending <= 1'b0;
+      LATCHING: begin
+        // Update which streams have been served in this cycle
+        stream_served_d = stream_served_q | pop_ready;
+        push_i.ready = &stream_served_d;
+        // If the transaction is done, we can go back to BYPASS.
+        if (&stream_served_d) begin
+          state_d      = BYPASS;
+        end
+      end
+
+      default: begin
+        state_d      = BYPASS;
+        push_i.ready = 1'b0;
+      end
+    endcase
+  end
+
+  // Sequential Logic (State and Data Registers)
+  always_ff @(posedge clk_i or negedge rst_ni) begin
+    if (~rst_ni) begin
+      state_q         <= BYPASS;
+      stream_served_q <= '0;
+      data_q          <= '0;
+      strb_q          <= '0;
+    end
+    else if (clear_i) begin
+      state_q         <= BYPASS;
+      stream_served_q <= '0;
+    end
+    else begin
+      state_q <= state_d;
+      stream_served_q <= stream_served_d;
+      // Latch input data only when a new transaction starts (transition from BYPASS to LATCHING)
+      if (state_q == BYPASS && state_d == LATCHING) begin
+        data_q <= push_i.data;
+        strb_q <= push_i.strb;
       end
     end
   end
-end
 
-for (genvar ii = 0; ii < NB_OUT_STREAMS; ii++) begin : stream_binding
-  
-  for (genvar jj = 0; jj < ELEMENT_STRIDE; jj++) begin
-    assign pop_o[ii].data[(jj+1)*ELEMENT_WIDTH-1:jj*ELEMENT_WIDTH] = data_reg[(ii + jj*ELEMENT_STRIDE + 1)*ELEMENT_WIDTH - 1 : (ii + jj*ELEMENT_STRIDE)*ELEMENT_WIDTH];
+  // Output Logic
+  for (genvar ii = 0; ii < NB_OUT_STREAMS; ii++) begin : stream_binding
+    // In BYPASS (bypass mode), data comes directly from the input.
+    // In LATCHING (registered mode), data comes from the registers.
+    for (genvar jj = 0; jj < ELEMENT_STRIDE; jj++) begin
+      assign pop_o[ii].data[(jj+1)*ELEMENT_WIDTH-1:jj*ELEMENT_WIDTH] = (state_q == BYPASS) ? push_i.data[(ii + jj*ELEMENT_STRIDE + 1)*ELEMENT_WIDTH - 1 : (ii + jj*ELEMENT_STRIDE)*ELEMENT_WIDTH] : data_q[(ii + jj*ELEMENT_STRIDE + 1)*ELEMENT_WIDTH - 1 : (ii + jj*ELEMENT_STRIDE)*ELEMENT_WIDTH];
+    end
+
+    for (genvar mm = 0; mm < DATA_WIDTH_OUT/8; mm++) begin
+      assign pop_o[ii].strb[mm] = (state_q == BYPASS) ? push_i.strb[(mm*NB_OUT_STREAMS)+ii] : strb_q[(mm*NB_OUT_STREAMS)+ii];
+    end
+
+    // Output is valid if we are in bypass (BYPASS and input is valid) or if we are in registered mode (LATCHING) and this stream has not been served yet.
+    assign pop_o[ii].valid = (state_q == BYPASS && push_i.valid) || (state_q == LATCHING && !stream_served_q[ii]);
   end
-
-  for (genvar mm = 0; mm < DATA_WIDTH_OUT/8; mm++) begin
-    assign pop_o[ii].strb[mm] = strb_reg[(mm*NB_OUT_STREAMS)+ii];
-  end
-
-  // Assert valid only until the specific output has taken the word.
-  assign pop_o[ii].valid = transaction_pending && !stream_served[ii];
-end
-
-// The input can accept a new word whenever there is no transaction in
-// progress.
-// We do not  need to wait for a simultaneous `ready` from all
-// outputs because acceptance is tracked with `stream_served`.
-assign push_i.ready = !transaction_pending;
 
 endmodule // hwpe_stream_split_stride
