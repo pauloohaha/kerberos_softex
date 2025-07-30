@@ -105,7 +105,7 @@ module softex_top #(
 
     hwpe_stream_fifo #(
         .DATA_WIDTH (   ACTUAL_DW  ),
-        .FIFO_DEPTH (   2          )
+        .FIFO_DEPTH (   64          )
     ) i_in_fifo (
         .clk_i      (   clk_i       ),
         .rst_ni     (   rst_ni      ),
@@ -117,7 +117,7 @@ module softex_top #(
 
     hwpe_stream_fifo #(
         .DATA_WIDTH (   ACTUAL_DW  ),
-        .FIFO_DEPTH (   2           )
+        .FIFO_DEPTH (   64           )
     ) i_out_fifo (
         .clk_i      (   clk_i       ),
         .rst_ni     (   rst_ni      ),
